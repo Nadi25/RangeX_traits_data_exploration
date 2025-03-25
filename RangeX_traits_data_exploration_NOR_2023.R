@@ -100,6 +100,8 @@ ggplot(traits_23, aes(combined_treatment, LDMC, fill = combined_treatment))+
 
 
 
+
+
 # delete samples without functional trait measurements -------------------------------------
 traits_NOR_23 <- traits_23 |> 
   filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
