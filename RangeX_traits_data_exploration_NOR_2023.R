@@ -385,7 +385,29 @@ plot_3d_mean_treat
 
 
 
+# 3d mean per specie ---------------------------------------
+# Calculate the mean SLA, LDMC, and leaf thickness for each species just to check
+mean_traits_species <- traits_23_3d |> 
+  group_by(species, combined_treatment) |> 
+  summarise(
+    mean_SLA = mean(SLA, na.rm = TRUE),
+    mean_LDMC = mean(LDMC, na.rm = TRUE),
+    mean_leaf_thickness = mean(leaf_thickness, na.rm = TRUE)
+  ) |> 
+  ungroup()
 
+plot_3d_mean_species <- plot_ly(mean_traits_species, x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness, color = ~species, colors = "Set1",
+                        text = ~species) |> 
+  add_markers() |> 
+  layout(scene = list(
+    xaxis = list(title = "Mean SLA (mm^2/mg)"),
+    yaxis = list(title = "Mean LDMC"),
+    zaxis = list(title = "Mean Leaf Thickness"),
+    legend = list(title = list(text = "Treatment"))
+  ))
+plot_3d_mean_species
+#
+# ok species seem to be clustered a bit
 
 
 
