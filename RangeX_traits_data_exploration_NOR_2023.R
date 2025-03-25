@@ -19,10 +19,24 @@
 library(conflicted)
 conflict_prefer_all("dplyr", quiet = TRUE)
 library(tidyverse)
+library(broom)
+library(lmerTest)
+library(ggsignif)
+
 library(FactoMineR)
 library(factoextra)
 
 theme_set(theme_bw())
+
+# define colors for each treatment
+define_colors <- c(
+  "hi_ambi_vege" = "turquoise",
+  "hi_ambi_bare" = "lightblue",
+  "hi_warm_vege" = "red",
+  "hi_warm_bare" = "orange",
+  "lo_ambi_vege" = "grey34",
+  "lo_ambi_bare" = "grey"
+)
 
 # import data -------------------------------------------------------------
 # functional traits 2023
@@ -81,7 +95,79 @@ ggplot(traits_23, aes(combined_treatment, SLA, fill = combined_treatment))+
   geom_boxplot()+
   facet_wrap(vars(species), ncol = 5)+
   labs(x = "Treatment", y = "SLA (mm^2/mg)")+
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom")+
+  geom_jitter(alpha = 0.5)+
+  stat_summary(fun = mean, geom = "point", shape = 20, 
+               size = 2, color = "red")
+
+
+# Perform ANOVA for each species
+results_anova <- traits_23 |> 
+  group_by(species) |> 
+  do(tidy(aov(SLA ~ combined_treatment, data = .)))
+print(results_anova)
+
+
+# significance all species together ---------------------------------------
+# all species together
+# Fit the mixed-effects model
+model_SLA <- lmerTest::lmer(SLA ~ combined_treatment + (1 | species) + 
+                (1 | block_ID_original),
+              data = traits_23)
+
+# View the summary of the model
+summary(model_SLA)
+# species explains some variance: species = 24.937, block = 0.213
+# hi_ambi_vege, hi_warm_vege, and lo_ambi_vege have significant effects on SLA, as indicated by their low p-values 
+# SLA significantly higher in vegetated plots compared to bare
+
+
+# Calculate means and confidence intervals for each treatment
+summary_data <- traits_23 |> 
+  group_by(combined_treatment) |> 
+  summarise(
+    mean_SLA = mean(SLA, na.rm = TRUE),
+    ci_lower = mean_SLA - qt(0.975, df = n() - 1) * sd(SLA, na.rm = TRUE) / sqrt(n()),
+    ci_upper = mean_SLA + qt(0.975, df = n() - 1) * sd(SLA, na.rm = TRUE) / sqrt(n())
+  )
+
+# Define significance comparisons
+comparisons <- list(
+  c("hi_ambi_vege", "hi_ambi_bare"),
+  c("hi_warm_vege", "hi_warm_bare"),
+  c("lo_ambi_vege", "lo_ambi_bare"),
+  c("hi_ambi_vege", "hi_warm_vege"),
+  c("hi_ambi_bare", "hi_warm_bare"),
+  c("hi_ambi_vege", "lo_ambi_vege")
+)
+
+# Define y-positions for the significance bars
+y_positions <- c(40, 42, 44, 46, 48, 52)
+
+# plot all species together
+SLA_all <- ggplot(traits_23, aes(combined_treatment, SLA, fill = combined_treatment)) +
+  geom_boxplot() +
+  geom_point(data = summary_data, aes(x = combined_treatment, y = mean_SLA), color = "red", size = 3) +
+  labs(x = "Treatment", y = "SLA (mm^2/mg)")+
+  theme(legend.position = "none")+
+  geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
+  scale_fill_manual(values = define_colors)
+SLA_all
+
+ggsave(filename = "RangeX_SLA_all_species.png", 
+       plot = SLA_all, 
+       path = "Graphs", 
+       width = 10, height = 6)
+
+
+# plot per species
+ggplot(traits_23, aes(combined_treatment, SLA, fill = combined_treatment)) +
+  geom_boxplot() +
+  # geom_point(data = summary_data, aes(x = combined_treatment, y = mean_SLA), color = "red", size = 3) +
+  labs(x = "Treatment", y = "SLA (mm^2/mg)")+
+  theme(legend.position = "none")+
+  geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
+  facet_wrap(vars(species))
 
 
 # LDMC ---------------------------------------------------------------------
@@ -89,11 +175,113 @@ ggplot(traits_23, aes(combined_treatment, LDMC, fill = combined_treatment))+
   geom_boxplot()+
   facet_wrap(vars(species), ncol = 5)+
   labs(x = "Treatment", y = "LDMC (mg g-1)")+
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom")+
+  stat_summary(fun = mean, geom = "point", shape = 20, 
+               size = 2, color = "red")
+
+# significance all species together ---------------------------------------
+# all species together
+# Fit the mixed-effects model
+model_LDMC <- lmerTest::lmer(LDMC ~ combined_treatment + (1 | species) + 
+                              (1 | block_ID_original),
+                            data = traits_23)
+
+# View the summary of the model
+summary(model_LDMC)
+# species explains some variance: species = 2781.77, block = 30.71
+# 
+
+# Calculate means and confidence intervals for each treatment
+summary_LDMC <- traits_23 |> 
+  group_by(combined_treatment) |> 
+  summarise(
+    mean_LDMC = mean(LDMC, na.rm = TRUE),
+    ci_lower = mean_LDMC - qt(0.975, df = n() - 1) * sd(LDMC, na.rm = TRUE) / sqrt(n()),
+    ci_upper = mean_LDMC + qt(0.975, df = n() - 1) * sd(LDMC, na.rm = TRUE) / sqrt(n())
+  )
+
+# Define y-positions for the significance bars
+y_positions <- c(400, 420, 440, 460, 480, 520)
+
+# plot all species together
+LDMC_all <- ggplot(traits_23, aes(combined_treatment, LDMC, fill = combined_treatment)) +
+  geom_boxplot() +
+  geom_point(data = summary_LDMC, aes(x = combined_treatment, y = mean_LDMC), color = "red", size = 3) +
+  labs(x = "Treatment", y = "LDMC (mg g-1)")+
+  theme(legend.position = "none")+
+  geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
+  scale_fill_manual(values = define_colors)
+LDMC_all
+
+ggsave(filename = "RangeX_LDMC_all_species.png", 
+       plot = LDMC_all, 
+       path = "Graphs", 
+       width = 10, height = 6)
+
+LDMC_species <- ggplot(traits_23, aes(combined_treatment, LDMC, fill = combined_treatment)) +
+  geom_boxplot() +
+  labs(x = "Treatment", y = "LDMC (mg g-1)")+
+  theme(legend.position = "bottom")+
+  geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
+  scale_fill_manual(values = define_colors)+
+  facet_wrap(vars(species), ncol = 5)
+LDMC_species
+
+ggsave(filename = "RangeX_LDMC_separate_species.png", 
+       plot = LDMC_species, 
+       path = "Graphs", 
+       width = 20, height = 10)
 
 
+# leaf thickness -------------------------------------------------------------
+ggplot(traits_23, aes(combined_treatment, leaf_thickness, fill = combined_treatment))+
+  geom_boxplot()+
+  facet_wrap(vars(species), ncol = 5)+
+  labs(x = "Treatment", y = "Leaf thickness (mm)")+
+  theme(legend.position = "bottom")+
+  stat_summary(fun = mean, geom = "point", shape = 20, 
+               size = 2, color = "red")
 
 
+# significance all species together ---------------------------------------
+# all species together
+# Fit the mixed-effects model
+model_leaf_thickness <- lmerTest::lmer(leaf_thickness ~ combined_treatment +
+                                         (1 | species) + 
+                               (1 | block_ID_original),
+                             data = traits_23)
+
+# View the summary of the model
+summary(model_leaf_thickness)
+# species explains very little variance
+# 
+
+# Calculate means and confidence intervals for each treatment
+summary_leaf_thickness <- traits_23 |> 
+  group_by(combined_treatment) |> 
+  summarise(
+    mean_leaf_thickness = mean(leaf_thickness, na.rm = TRUE),
+    ci_lower = mean_leaf_thickness- qt(0.975, df = n() - 1) * sd(leaf_thickness, na.rm = TRUE) / sqrt(n()),
+    ci_upper = mean_leaf_thickness + qt(0.975, df = n() - 1) * sd(leaf_thickness, na.rm = TRUE) / sqrt(n())
+  )
+
+# Define y-positions for the significance bars
+y_positions <- c(0.59, 0.59, 0.6, 0.66, 0.7, 0.77)
+
+# plot all species together
+leaf_thickness_all <- ggplot(traits_23, aes(combined_treatment, leaf_thickness, fill = combined_treatment)) +
+  geom_boxplot() +
+  geom_point(data = summary_leaf_thickness, aes(x = combined_treatment, y = mean_leaf_thickness), color = "red", size = 3) +
+  labs(x = "Treatment", y = "leaf_thickness (mm)")+
+  theme(legend.position = "none")+
+  geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
+  scale_fill_manual(values = define_colors)
+leaf_thickness_all
+
+ggsave(filename = "RangeX_leaf_thickness_all_species.png", 
+       plot = leaf_thickness_all, 
+       path = "Graphs", 
+       width = 10, height = 6)
 
 
 
