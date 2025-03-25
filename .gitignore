@@ -5,3 +5,6 @@
 
 # don't upload data
 Data/
+
+# don't upload graphs
+Graphs/
