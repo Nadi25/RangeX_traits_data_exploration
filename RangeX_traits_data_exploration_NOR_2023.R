@@ -22,6 +22,8 @@ library(tidyverse)
 library(broom)
 library(lmerTest)
 library(ggsignif)
+library(plotly)
+conflicts_prefer(plotly::layout)
 
 library(FactoMineR)
 library(factoextra)
@@ -159,16 +161,20 @@ ggsave(filename = "RangeX_SLA_all_species.png",
        path = "Graphs", 
        width = 10, height = 6)
 
-
 # plot per species
-ggplot(traits_23, aes(combined_treatment, SLA, fill = combined_treatment)) +
+SLA_species <- ggplot(traits_23, aes(combined_treatment, SLA, fill = combined_treatment)) +
   geom_boxplot() +
-  # geom_point(data = summary_data, aes(x = combined_treatment, y = mean_SLA), color = "red", size = 3) +
   labs(x = "Treatment", y = "SLA (mm^2/mg)")+
-  theme(legend.position = "none")+
+  theme(legend.position = "bottom")+
   geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
-  facet_wrap(vars(species))
+  scale_fill_manual(values = define_colors)+
+  facet_wrap(vars(species), ncol = 5)
+SLA_species
 
+ggsave(filename = "RangeX_SLA_separate_species.png", 
+       plot = SLA_species, 
+       path = "Graphs", 
+       width = 18, height = 10)
 
 # LDMC ---------------------------------------------------------------------
 ggplot(traits_23, aes(combined_treatment, LDMC, fill = combined_treatment))+
@@ -282,6 +288,101 @@ ggsave(filename = "RangeX_leaf_thickness_all_species.png",
        plot = leaf_thickness_all, 
        path = "Graphs", 
        width = 10, height = 6)
+
+
+leaf_thickness_species <- ggplot(traits_23, aes(combined_treatment, leaf_thickness, fill = combined_treatment)) +
+  geom_boxplot() +
+  labs(x = "Treatment", y = "Leaf thickness (mm)")+
+  theme(legend.position = "bottom")+
+  geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
+  scale_fill_manual(values = define_colors)+
+  facet_wrap(vars(species), ncol = 5)
+leaf_thickness_species
+
+ggsave(filename = "RangeX_leaf_thickness_separate_species.png", 
+       plot = leaf_thickness_species, 
+       path = "Graphs", 
+       width = 18, height = 10)
+
+
+
+# 3D plot -----------------------------------------------------------------
+traits_23_3d <- traits_23 |> 
+  mutate(treatment_label = as.factor(combined_treatment))
+
+# Create the 3D scatter plot
+plot_3d <- plot_ly(traits_23_3d, x = ~SLA, y = ~LDMC, z = ~leaf_thickness, color = ~treatment_label, colors = "Set1") |> 
+  add_markers() |> 
+  plotly::layout(scene = list(
+    xaxis = list(title = "SLA (mm^2/mg)"),
+    yaxis = list(title = "LDMC"),
+    zaxis = list(title = "Leaf Thickness")
+  ))
+
+plot_3d
+#
+
+# 3d mean per species per treatment ---------------------------------------
+# Calculate the mean SLA, LDMC, and leaf thickness for each species and treatment combination
+mean_traits <- traits_23_3d |> 
+  group_by(species, combined_treatment) |> 
+  summarise(
+    mean_SLA = mean(SLA, na.rm = TRUE),
+    mean_LDMC = mean(LDMC, na.rm = TRUE),
+    mean_leaf_thickness = mean(leaf_thickness, na.rm = TRUE)
+  ) |> 
+  ungroup()
+
+plot_3d_mean <- plot_ly(mean_traits, x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness, color = ~combined_treatment, colors = "Set1",
+                        text = ~species) |> 
+  add_markers() |> 
+  layout(scene = list(
+    xaxis = list(title = "Mean SLA (mm^2/mg)"),
+    yaxis = list(title = "Mean LDMC"),
+    zaxis = list(title = "Mean Leaf Thickness"),
+    legend = list(title = list(text = "Treatment"))
+  ))
+
+plot_3d_mean
+#
+
+# add lines between species in same treat
+plot_ly(mean_traits, x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness, color = ~combined_treatment, colors = "Set1") |> 
+  add_markers(size = 1) |> 
+  layout(scene = list(
+    xaxis = list(title = "Mean SLA (mm^2/mg)"),
+    yaxis = list(title = "Mean LDMC"),
+    zaxis = list(title = "Mean Leaf Thickness"),
+    legend = list(size = 1, x = 0.1, y = 0.9, title = list(text = "Treatment"))  # Adjust legend position
+  )) |> 
+  add_trace(type = "scatter3d", mode = "markers+lines", x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness, color = ~combined_treatment, colors = "Set1", marker = list(size = 1), line = list(width = 2), showlegend = FALSE)
+
+
+# 3d mean per treatment ---------------------------------------
+# Calculate the mean SLA, LDMC, and leaf thickness for each  treatment combination
+mean_traits_treat <- traits_23_3d |> 
+  group_by(combined_treatment) |> 
+  summarise(
+    mean_SLA = mean(SLA, na.rm = TRUE),
+    mean_LDMC = mean(LDMC, na.rm = TRUE),
+    mean_leaf_thickness = mean(leaf_thickness, na.rm = TRUE)
+  ) |> 
+  ungroup()
+
+plot_3d_mean_treat <- plot_ly(mean_traits_treat, x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness, color = ~combined_treatment, 
+                              colors = define_colors) |> 
+  add_markers() |> 
+  layout(scene = list(
+    xaxis = list(title = "Mean SLA (mm^2/mg)"),
+    yaxis = list(title = "Mean LDMC (mg g-1)"),
+    zaxis = list(title = "Mean leaf thickness (mm)"),
+    legend = list(title = list(text = "Treatment"))
+  ))
+plot_3d_mean_treat
+#
+# kind of nice to see that the points for bare vs vege are far apart
+# while warm vs ambi are close to each other
+
 
 
 
