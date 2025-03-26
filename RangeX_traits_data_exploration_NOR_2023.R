@@ -41,38 +41,57 @@ define_colors <- c(
 )
 
 # import data -------------------------------------------------------------
-# functional traits 2023
+# functional traits 2023 NOR
 functional_traits <- read.csv("Data/RangeX_clean_functional_traits_NOR_2023.csv")
 
 functional_traits <- functional_traits |> 
   select(-X)
 head(functional_traits)
 
-# demographic traits 2021-23
+# functional traits CHE
+functional_traits_CHE <- read.csv("Data/RangeX_clean_LeafTraits_2022_2023_CHE.csv")
+
+# filter 2023
+functional_traits_CHE$date_collection <- as.Date(functional_traits_CHE$date_collection)
+
+functional_traits_CHE <- functional_traits_CHE |> 
+  filter(format(date_collection, "%Y") == "2023")
+
+functional_traits_CHE <- functional_traits_CHE |> 
+  select(-c(C_N, C13))
+
+# demographic traits 2021-23 NOR
 demo_traits <- read.csv("Data/RangeX_clean_yearly_size_2021_2022_2023_NOR.csv")
 
 # filter only 2023
 demographic_traits <- demo_traits |> 
   filter(year == 2023)
 
-# combine functional and demographic traits -------------------------------
-traits <- left_join(demographic_traits, functional_traits,
-                    by = c("unique_plant_ID", "species"))
-
+# # combine functional and demographic traits -------------------------------
+# traits <- left_join(demographic_traits, functional_traits,
+#                     by = c("unique_plant_ID", "species"))
+# 
 
 # import meta data --------------------------------------------------------
+# NOR
 metadata <- read.csv("Data/RangeX_metadata_focal_NOR.csv")
 head(metadata)
 dput(colnames(metadata))
 
+metadata_CHE <- read.csv("Data/RangeX_clean_MetadataFocal_CHE.csv")
+head(metadata_CHE)
+dput(colnames(metadata_CHE))
 
-# merge trait data with meta data -----------------------------------------
-traits_23 <- left_join(metadata, traits, by = c("unique_plant_ID", "species"))
+
+# merge trait data with meta data NOR ----------------------------------------
+traits_23 <- left_join(metadata, functional_traits, by = c("unique_plant_ID", "species"))
 nrow(traits_23)
 
 traits_23 <- traits_23 |> 
   mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = "_"))
 
+traits_23 <- traits_23 |> 
+  select(-X)
 
 # species names -----------------------------------------------------------
 traits_23 <- traits_23 |> 
@@ -90,8 +109,28 @@ traits_23 <- traits_23 |>
     TRUE ~ species  # Keep other species unchanged
   ))
 
+# merge trait data with meta data CHE ----------------------------------------
+traits_23_CHE <- left_join(metadata_CHE, functional_traits_CHE, by = c("unique_plant_ID", "species"))
+nrow(traits_23_CHE)
 
-# plotting functional traits ----------------------------------------------
+traits_23_CHE <- traits_23_CHE |> 
+  mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = "_"))
+
+
+
+# combine NOR with CHE ----------------------------------------------------
+names(traits_23)
+names(traits_23_CHE)
+
+traits_23_CHE <- traits_23_CHE |> 
+  mutate(plot_ID_original = as.character(plot_ID_original),
+         position_ID_original = as.character(position_ID_original))
+
+traits_NOR_CHE <- bind_rows(traits_23, traits_23_CHE)
+
+
+
+# plotting functional traits NOR -------------------------------------------
 # SLA ---------------------------------------------------------------------
 ggplot(traits_23, aes(combined_treatment, SLA, fill = combined_treatment))+
   geom_boxplot()+
@@ -306,7 +345,7 @@ ggsave(filename = "RangeX_leaf_thickness_separate_species.png",
 
 
 
-# 3D plot -----------------------------------------------------------------
+# 3D plot NOR ----------------------------------------------------------------
 traits_23_3d <- traits_23 |> 
   mutate(treatment_label = as.factor(combined_treatment))
 
@@ -371,22 +410,26 @@ mean_traits_treat <- traits_23_3d |>
 
 plot_3d_mean_treat <- plot_ly(mean_traits_treat, x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness, color = ~combined_treatment, 
                               colors = define_colors) |> 
-  add_markers() |> 
+  add_markers(marker = list(size = 18)) |> 
   layout(scene = list(
     xaxis = list(title = "Mean SLA (mm^2/mg)"),
     yaxis = list(title = "Mean LDMC (mg g-1)"),
     zaxis = list(title = "Mean leaf thickness (mm)"),
-    legend = list(title = list(text = "Treatment"))
+    legend = list(title = list(text = "Treatment")) 
   ))
 plot_3d_mean_treat
 #
 # kind of nice to see that the points for bare vs vege are far apart
 # while warm vs ambi are close to each other
 
+# move legend closer
+plot_3d_mean_treat <- plot_3d_mean_treat|> 
+  layout(legend = list(x = 0.1, y = 0.9))
+plot_3d_mean_treat
 
 
-# 3d mean per specie ---------------------------------------
-# Calculate the mean SLA, LDMC, and leaf thickness for each species just to check
+# 3d mean per species ---------------------------------------
+# Calculate the mean SLA, LDMC, and leaf thickness for each species just to check per treatment
 mean_traits_species <- traits_23_3d |> 
   group_by(species, combined_treatment) |> 
   summarise(
@@ -401,13 +444,61 @@ plot_3d_mean_species <- plot_ly(mean_traits_species, x = ~mean_SLA, y = ~mean_LD
   add_markers() |> 
   layout(scene = list(
     xaxis = list(title = "Mean SLA (mm^2/mg)"),
-    yaxis = list(title = "Mean LDMC"),
-    zaxis = list(title = "Mean Leaf Thickness"),
+    yaxis = list(title = "Mean LDMC (mg g-1)"),
+    zaxis = list(title = "Mean leaf thickness (mm)"),
     legend = list(title = list(text = "Treatment"))
   ))
 plot_3d_mean_species
 #
 # ok species seem to be clustered a bit
+
+
+
+
+# 3d NOR and CHE ----------------------------------------------------------
+traits_NOR_CHE <- traits_NOR_CHE |> 
+  mutate(treatment_label = as.factor(combined_treatment))
+
+# 3d mean per treatment ---------------------------------------
+# Calculate the mean SLA, LDMC, and leaf thickness for each  treatment combination
+mean_traits_treat_NOR_CHE <- traits_NOR_CHE |> 
+  group_by(region, combined_treatment) |> 
+  summarise(
+    mean_SLA = mean(SLA, na.rm = TRUE),
+    mean_LDMC = mean(LDMC, na.rm = TRUE),
+    mean_leaf_thickness = mean(leaf_thickness, na.rm = TRUE)
+  ) |> 
+  ungroup()
+
+# define the shapes for each region
+shape_mapping <- c("NOR" = "circle", "CHE" = "diamond")
+
+# plot
+NOR_CHE_plot_3d_mean_treat <- plot_ly(mean_traits_treat_NOR_CHE, x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness, color = ~combined_treatment, 
+                                      colors = define_colors, symbol = ~region, symbols = shape_mapping) |> 
+  add_markers(marker = list(size = 18)) |> 
+  layout(scene = list(
+    xaxis = list(title = "Mean SLA (mm^2/mg)"),
+    yaxis = list(title = "Mean LDMC (mg g-1)"),
+    zaxis = list(title = "Mean leaf thickness (mm)"),
+    legend = list(title = list(text = "Treatment"))
+  ))
+NOR_CHE_plot_3d_mean_treat
+#
+# move legend closer
+NOR_CHE_plot_3d_mean_treat <- NOR_CHE_plot_3d_mean_treat|> 
+  layout(legend = list(x = 0.9, y = 0.8))
+NOR_CHE_plot_3d_mean_treat
+#
+
+
+
+
+
+
+
+
+
 
 
 
