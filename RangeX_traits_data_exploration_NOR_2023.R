@@ -50,6 +50,9 @@ library(ggsignif)
 library(plotly)
 conflicts_prefer(plotly::layout)
 library(colorspace)
+library(scales)
+library(ggra)
+library(fmsb)
 
 library(FactoMineR)
 library(factoextra)
@@ -92,10 +95,21 @@ demo_traits_NOR <- read.csv("Data/RangeX_clean_yearly_size_2021_2022_2023_NOR.cs
 demographic_traits_NOR <- demo_traits_NOR |> 
   filter(year == 2023)
 
-# # combine functional and demographic traits -------------------------------
-# traits <- left_join(demographic_traits, functional_traits,
-#                     by = c("unique_plant_ID", "species"))
-# 
+# species names -----------------------------------------------------------
+demographic_traits_NOR <- demographic_traits_NOR |> 
+  mutate(species = case_when(
+    species == "cyncri" ~ "Cynosurus cristatus",
+    species == "sucpra" ~ "Succisa pratensis",
+    species == "hypmac" ~ "Hypericum maculatum",
+    species == "cennig" ~ "Centaurea nigra",
+    species == "leuvul" ~ "Leucanthemum vulgare",
+    species == "sildio" ~ "Silene dioica",
+    species == "plalan" ~ "Plantago lanceolata",
+    species == "luzmul" ~ "Luzula multiflora",
+    species == "tripra" ~ "Trifolium pratense",
+    species == "pimsax" ~ "Pimpinella saxifraga",
+    TRUE ~ species  # Keep other species unchanged
+  ))
 
 # import meta data --------------------------------------------------------
 # NOR
@@ -192,6 +206,12 @@ ggplot(traits_23_CHE, aes(combined_treatment, SLA, fill = combined_treatment)) +
 # CHE.hi.ambi.vege.wf.10 hypper
 
 # NOR.hi.warm.vege.wf.04 sildio NOR
+
+
+# combine functional and demographic traits NOR ------------------------------
+traits_fun_demo_NOR <- left_join(demographic_traits_NOR, 
+                                 traits_23_NOR,
+                                 by = c("unique_plant_ID", "species"))
 
 
 
@@ -522,6 +542,138 @@ ggsave(filename = "RangeX_LDMC_per_species_NOR_CHE.png",
 
 # filter interesting species ----------------------------------------------
 # leuvul
+
+
+
+# spiderweb NOR--------------------------------------------
+# prepare data to have one value per leaf
+# has to be numeric
+# no NAs
+traits_NOR_radar <- traits_23_NOR |> 
+  mutate(group = combined_treatment) |> 
+  mutate(across(c(LDMC, SLA, leaf_thickness, wet_mass, dry_mass,
+                  leaf_area), as.numeric)) |> 
+  mutate(across(c(LDMC, SLA, leaf_thickness, wet_mass, dry_mass,
+                  leaf_area), rescale)) |> 
+  select(group, LDMC, SLA, leaf_thickness, wet_mass, dry_mass,
+         leaf_area) |> 
+  na.omit() |> # delete rows with NAs
+  distinct()
+
+# calculate mean per treatment
+radar_data_NOR <- traits_NOR_radar |> 
+  group_by(group) |> 
+  summarise(across(c(LDMC, SLA, leaf_thickness, wet_mass, dry_mass,
+                     leaf_area), mean)) |> 
+  ungroup()
+
+max_min <- data.frame(
+  group = c("Max", "Min"),
+  LDMC = c(max(radar_data_NOR$LDMC), min(radar_data_NOR$LDMC)),
+  SLA = c(max(radar_data_NOR$SLA), min(radar_data_NOR$SLA)),
+  leaf_thickness = c(max(radar_data_NOR$leaf_thickness), min(radar_data_NOR$leaf_thickness)),
+  wet_mass = c(max(radar_data_NOR$wet_mass), min(radar_data_NOR$wet_mass)),
+  dry_mass = c(max(radar_data_NOR$dry_mass), min(radar_data_NOR$dry_mass)),
+  leaf_area = c(max(radar_data_NOR$leaf_area), min(radar_data_NOR$leaf_area))
+)
+
+radar_data_NOR <- rbind(max_min, radar_data_NOR)
+
+ggradar(radar_data_NOR)
+
+
+
+# spiderweb functional traits NOR--------------------------------------------
+rescale_custom <- function(x) {
+  scales::rescale(x, to = c(0.2, 1))
+}
+
+radar_data_NOR <- traits_23_NOR |> 
+  mutate(group = combined_treatment) |> 
+  mutate(across(c(LDMC, SLA, leaf_thickness, wet_mass, dry_mass, leaf_area), as.numeric)) |> 
+  mutate(across(c(LDMC, SLA, leaf_thickness, wet_mass, dry_mass, leaf_area), rescale_custom)) |> 
+  select(group, LDMC, SLA, leaf_thickness, wet_mass, dry_mass, leaf_area) |> 
+  na.omit() |> 
+  distinct()
+
+# Calculate mean per treatment
+radar_data_NOR <- radar_data_NOR |> 
+  group_by(group) |> 
+  summarise(across(everything(), mean)) |> 
+  ungroup()
+
+# Create radar plot without min-max rows
+ggradar(radar_data_NOR,
+        grid.min = 0.2,            # Start from 20% to avoid clustering
+        grid.mid = 0.4,            # Midpoint for better spread
+        grid.max = 0.6,              # Max remains 1
+        plot.extent.x.sf = 1.5,    # Increase plot area
+        plot.extent.y.sf = 1.2,    # Adjust aspect ratio
+        group.line.width = 1.2,    # Thicker lines for visibility
+        group.point.size = 4,      # Larger points
+        background.circle.colour = "white", # Clean background
+        legend.position = "bottom") # Adjust legend placement
+
+
+
+# spiderweb functional and demographic traits NOR ----------------------------
+rescale_custom <- function(x) {
+  scales::rescale(x, to = c(0.2, 1))
+}
+
+traits_fun_demo_NOR |> 
+  summarise(across(everything(), ~sum(is.na(.))))
+
+# select traits where as many plants as possible have values
+radar_fun_demo_NOR <- traits_fun_demo_NOR |> 
+  mutate(group = combined_treatment) |> 
+  mutate(across(c(LDMC, SLA, leaf_thickness, wet_mass, dry_mass, leaf_area,
+                  height_vegetative, height_vegetative_str, 
+                  number_leaves, number_flowers), as.numeric)) |> 
+  mutate(across(c(LDMC, SLA, leaf_thickness, wet_mass, dry_mass, leaf_area,
+                  height_vegetative, height_vegetative_str, 
+                  number_leaves, number_flowers), rescale_custom)) |> 
+  select(group, LDMC, SLA, leaf_thickness, wet_mass, dry_mass, leaf_area,
+         height_vegetative, height_vegetative_str, 
+         number_leaves, number_flowers) |> 
+  #na.omit() |> 
+  #distinct() |> 
+  select(group, everything())
+
+# delete the rows where one trait has an NA
+radar_fun_demo_NOR <- radar_fun_demo_NOR |> na.omit()
+
+
+# Calculate mean per treatment
+radar_fun_demo_NOR <- radar_fun_demo_NOR |> 
+  group_by(group) |> 
+  summarise(across(everything(), mean)) |> 
+  ungroup()
+
+# Create radar plot without min-max rows
+ggradar(radar_fun_demo_NOR,
+        grid.min = 0.2,            # Start from 20% to avoid clustering
+        grid.mid = 0.4,            # Midpoint for better spread
+        grid.max = 0.6,              # Max remains 1
+        plot.extent.x.sf = 1.5,    # Increase plot area
+        plot.extent.y.sf = 1.2,    # Adjust aspect ratio
+        group.line.width = 1.2,    # Thicker lines for visibility
+        group.point.size = 4,      # Larger points
+        background.circle.colour = "white", # Clean background
+        legend.position = "bottom") # Adjust legend placement
+
+#
+
+
+
+
+
+
+
+
+
+
+
 
 
 # 3D plot NOR ----------------------------------------------------------------
