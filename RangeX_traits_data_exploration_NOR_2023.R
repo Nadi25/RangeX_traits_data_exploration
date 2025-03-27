@@ -24,29 +24,29 @@ library(lmerTest)
 library(ggsignif)
 library(plotly)
 conflicts_prefer(plotly::layout)
+library(colorspace)
 
 library(FactoMineR)
 library(factoextra)
 
-theme_set(theme_bw())
+theme_set(theme_bw(base_size = 20))
 
 # define colors for each treatment
 define_colors <- c(
-  "hi_ambi_vege" = "turquoise",
-  "hi_ambi_bare" = "lightblue",
-  "hi_warm_vege" = "red",
-  "hi_warm_bare" = "orange",
-  "lo_ambi_vege" = "grey34",
-  "lo_ambi_bare" = "grey"
-)
+  "hi ambi vege" = "turquoise4",
+  "hi ambi bare" = lighten("turquoise4", 0.7),
+  "hi warm vege" = "darkred",
+  "hi warm bare" = lighten("darkred", 0.7),
+  "lo ambi vege" = "grey34",
+  "lo ambi bare" = lighten("grey34", 0.7))
 
 # import data -------------------------------------------------------------
 # functional traits 2023 NOR
-functional_traits <- read.csv("Data/RangeX_clean_functional_traits_NOR_2023.csv")
+functional_traits_NOR <- read.csv("Data/RangeX_clean_functional_traits_NOR_2023.csv")
 
-functional_traits <- functional_traits |> 
+functional_traits_NOR <- functional_traits_NOR |> 
   select(-X)
-head(functional_traits)
+head(functional_traits_NOR)
 
 # functional traits CHE
 functional_traits_CHE <- read.csv("Data/RangeX_clean_LeafTraits_2022_2023_CHE.csv")
@@ -61,10 +61,10 @@ functional_traits_CHE <- functional_traits_CHE |>
   select(-c(C_N, C13))
 
 # demographic traits 2021-23 NOR
-demo_traits <- read.csv("Data/RangeX_clean_yearly_size_2021_2022_2023_NOR.csv")
+demo_traits_NOR <- read.csv("Data/RangeX_clean_yearly_size_2021_2022_2023_NOR.csv")
 
 # filter only 2023
-demographic_traits <- demo_traits |> 
+demographic_traits_NOR <- demo_traits_NOR |> 
   filter(year == 2023)
 
 # # combine functional and demographic traits -------------------------------
@@ -74,27 +74,27 @@ demographic_traits <- demo_traits |>
 
 # import meta data --------------------------------------------------------
 # NOR
-metadata <- read.csv("Data/RangeX_metadata_focal_NOR.csv")
-head(metadata)
-dput(colnames(metadata))
-
+metadata_NOR <- read.csv("Data/RangeX_metadata_focal_NOR.csv")
+head(metadata_NOR)
+dput(colnames(metadata_NOR))
+# CHE
 metadata_CHE <- read.csv("Data/RangeX_clean_MetadataFocal_CHE.csv")
 head(metadata_CHE)
 dput(colnames(metadata_CHE))
 
 
 # merge trait data with meta data NOR ----------------------------------------
-traits_23 <- left_join(metadata, functional_traits, by = c("unique_plant_ID", "species"))
-nrow(traits_23)
+traits_23_NOR <- left_join(metadata_NOR, functional_traits_NOR, by = c("unique_plant_ID", "species"))
+nrow(traits_23_NOR)
 
-traits_23 <- traits_23 |> 
-  mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = "_"))
+traits_23_NOR <- traits_23_NOR |> 
+  mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = " "))
 
-traits_23 <- traits_23 |> 
+traits_23_NOR <- traits_23_NOR |> 
   select(-X)
 
 # species names -----------------------------------------------------------
-traits_23 <- traits_23 |> 
+traits_23_NOR <- traits_23_NOR |> 
   mutate(species = case_when(
     species == "cyncri" ~ "Cynosurus cristatus",
     species == "sucpra" ~ "Succisa pratensis",
@@ -114,25 +114,26 @@ traits_23_CHE <- left_join(metadata_CHE, functional_traits_CHE, by = c("unique_p
 nrow(traits_23_CHE)
 
 traits_23_CHE <- traits_23_CHE |> 
-  mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = "_"))
+  mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = " "))
 
 
 
 # combine NOR with CHE ----------------------------------------------------
-names(traits_23)
+names(traits_23_NOR)
 names(traits_23_CHE)
 
 traits_23_CHE <- traits_23_CHE |> 
   mutate(plot_ID_original = as.character(plot_ID_original),
          position_ID_original = as.character(position_ID_original))
 
-traits_NOR_CHE <- bind_rows(traits_23, traits_23_CHE)
+traits_NOR_CHE <- bind_rows(traits_23_NOR, traits_23_CHE)
 
-
+na_counts <- colSums(is.na(traits_NOR_CHE))
+na_counts
 
 # plotting functional traits NOR -------------------------------------------
 # SLA ---------------------------------------------------------------------
-ggplot(traits_23, aes(combined_treatment, SLA, fill = combined_treatment))+
+ggplot(traits_23_NOR, aes(combined_treatment, SLA, fill = combined_treatment))+
   geom_boxplot()+
   facet_wrap(vars(species), ncol = 5)+
   labs(x = "Treatment", y = "SLA (mm^2/mg)")+
@@ -143,7 +144,7 @@ ggplot(traits_23, aes(combined_treatment, SLA, fill = combined_treatment))+
 
 
 # Perform ANOVA for each species
-results_anova <- traits_23 |> 
+results_anova <- traits_23_NOR |> 
   group_by(species) |> 
   do(tidy(aov(SLA ~ combined_treatment, data = .)))
 print(results_anova)
@@ -154,7 +155,7 @@ print(results_anova)
 # Fit the mixed-effects model
 model_SLA <- lmerTest::lmer(SLA ~ combined_treatment + (1 | species) + 
                 (1 | block_ID_original),
-              data = traits_23)
+              data = traits_23_NOR)
 
 # View the summary of the model
 summary(model_SLA)
@@ -164,7 +165,7 @@ summary(model_SLA)
 
 
 # Calculate means and confidence intervals for each treatment
-summary_data <- traits_23 |> 
+summary_data <- traits_23_NOR |> 
   group_by(combined_treatment) |> 
   summarise(
     mean_SLA = mean(SLA, na.rm = TRUE),
@@ -174,34 +175,35 @@ summary_data <- traits_23 |>
 
 # Define significance comparisons
 comparisons <- list(
-  c("hi_ambi_vege", "hi_ambi_bare"),
-  c("hi_warm_vege", "hi_warm_bare"),
-  c("lo_ambi_vege", "lo_ambi_bare"),
-  c("hi_ambi_vege", "hi_warm_vege"),
-  c("hi_ambi_bare", "hi_warm_bare"),
-  c("hi_ambi_vege", "lo_ambi_vege")
+  c("hi ambi vege", "hi ambi bare"),
+  c("hi warm vege", "hi warm bare"),
+  c("lo ambi vege", "lo ambi bare"),
+  c("hi ambi bare", "hi warm bare"),
+  c("hi ambi vege", "hi warm vege"),
+  c("hi ambi bare", "hi warm bare"),
+  c("hi ambi vege", "lo ambi vege")
 )
 
 # Define y-positions for the significance bars
-y_positions <- c(40, 42, 44, 46, 48, 52)
+y_positions <- c(40, 40, 40, 44, 48, 51, 54)
 
 # plot all species together
-SLA_all <- ggplot(traits_23, aes(combined_treatment, SLA, fill = combined_treatment)) +
+SLA_all <- ggplot(traits_23_NOR, aes(combined_treatment, SLA, fill = combined_treatment)) +
   geom_boxplot() +
   geom_point(data = summary_data, aes(x = combined_treatment, y = mean_SLA), color = "red", size = 3) +
-  labs(x = "Treatment", y = "SLA (mm^2/mg)")+
+  labs(x = "Treatment", y = expression(SLA (mm^2/mg)))+
   theme(legend.position = "none")+
   geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
   scale_fill_manual(values = define_colors)
 SLA_all
 
-ggsave(filename = "RangeX_SLA_all_species.png", 
+ggsave(filename = "RangeX_SLA_per_treat_NOR.png", 
        plot = SLA_all, 
        path = "Graphs", 
        width = 10, height = 6)
 
 # plot per species
-SLA_species <- ggplot(traits_23, aes(combined_treatment, SLA, fill = combined_treatment)) +
+SLA_species <- ggplot(traits_23_NOR, aes(combined_treatment, SLA, fill = combined_treatment)) +
   geom_boxplot() +
   labs(x = "Treatment", y = "SLA (mm^2/mg)")+
   theme(legend.position = "bottom")+
@@ -216,7 +218,7 @@ ggsave(filename = "RangeX_SLA_separate_species.png",
        width = 18, height = 10)
 
 # LDMC ---------------------------------------------------------------------
-ggplot(traits_23, aes(combined_treatment, LDMC, fill = combined_treatment))+
+ggplot(traits_23_NOR, aes(combined_treatment, LDMC, fill = combined_treatment))+
   geom_boxplot()+
   facet_wrap(vars(species), ncol = 5)+
   labs(x = "Treatment", y = "LDMC (mg g-1)")+
@@ -229,7 +231,7 @@ ggplot(traits_23, aes(combined_treatment, LDMC, fill = combined_treatment))+
 # Fit the mixed-effects model
 model_LDMC <- lmerTest::lmer(LDMC ~ combined_treatment + (1 | species) + 
                               (1 | block_ID_original),
-                            data = traits_23)
+                            data = traits_23_NOR)
 
 # View the summary of the model
 summary(model_LDMC)
@@ -237,7 +239,7 @@ summary(model_LDMC)
 # 
 
 # Calculate means and confidence intervals for each treatment
-summary_LDMC <- traits_23 |> 
+summary_LDMC <- traits_23_NOR |> 
   group_by(combined_treatment) |> 
   summarise(
     mean_LDMC = mean(LDMC, na.rm = TRUE),
@@ -249,7 +251,7 @@ summary_LDMC <- traits_23 |>
 y_positions <- c(400, 420, 440, 460, 480, 520)
 
 # plot all species together
-LDMC_all <- ggplot(traits_23, aes(combined_treatment, LDMC, fill = combined_treatment)) +
+LDMC_all <- ggplot(traits_23_NOR, aes(combined_treatment, LDMC, fill = combined_treatment)) +
   geom_boxplot() +
   geom_point(data = summary_LDMC, aes(x = combined_treatment, y = mean_LDMC), color = "red", size = 3) +
   labs(x = "Treatment", y = "LDMC (mg g-1)")+
@@ -263,7 +265,7 @@ ggsave(filename = "RangeX_LDMC_all_species.png",
        path = "Graphs", 
        width = 10, height = 6)
 
-LDMC_species <- ggplot(traits_23, aes(combined_treatment, LDMC, fill = combined_treatment)) +
+LDMC_species <- ggplot(traits_23_NOR, aes(combined_treatment, LDMC, fill = combined_treatment)) +
   geom_boxplot() +
   labs(x = "Treatment", y = "LDMC (mg g-1)")+
   theme(legend.position = "bottom")+
@@ -279,7 +281,7 @@ ggsave(filename = "RangeX_LDMC_separate_species.png",
 
 
 # leaf thickness -------------------------------------------------------------
-ggplot(traits_23, aes(combined_treatment, leaf_thickness, fill = combined_treatment))+
+ggplot(traits_23_NOR, aes(combined_treatment, leaf_thickness, fill = combined_treatment))+
   geom_boxplot()+
   facet_wrap(vars(species), ncol = 5)+
   labs(x = "Treatment", y = "Leaf thickness (mm)")+
@@ -294,7 +296,7 @@ ggplot(traits_23, aes(combined_treatment, leaf_thickness, fill = combined_treatm
 model_leaf_thickness <- lmerTest::lmer(leaf_thickness ~ combined_treatment +
                                          (1 | species) + 
                                (1 | block_ID_original),
-                             data = traits_23)
+                             data = traits_23_NOR)
 
 # View the summary of the model
 summary(model_leaf_thickness)
@@ -302,7 +304,7 @@ summary(model_leaf_thickness)
 # 
 
 # Calculate means and confidence intervals for each treatment
-summary_leaf_thickness <- traits_23 |> 
+summary_leaf_thickness <- traits_23_NOR |> 
   group_by(combined_treatment) |> 
   summarise(
     mean_leaf_thickness = mean(leaf_thickness, na.rm = TRUE),
@@ -314,7 +316,7 @@ summary_leaf_thickness <- traits_23 |>
 y_positions <- c(0.59, 0.59, 0.6, 0.66, 0.7, 0.77)
 
 # plot all species together
-leaf_thickness_all <- ggplot(traits_23, aes(combined_treatment, leaf_thickness, fill = combined_treatment)) +
+leaf_thickness_all <- ggplot(traits_23_NOR, aes(combined_treatment, leaf_thickness, fill = combined_treatment)) +
   geom_boxplot() +
   geom_point(data = summary_leaf_thickness, aes(x = combined_treatment, y = mean_leaf_thickness), color = "red", size = 3) +
   labs(x = "Treatment", y = "leaf_thickness (mm)")+
@@ -329,7 +331,7 @@ ggsave(filename = "RangeX_leaf_thickness_all_species.png",
        width = 10, height = 6)
 
 
-leaf_thickness_species <- ggplot(traits_23, aes(combined_treatment, leaf_thickness, fill = combined_treatment)) +
+leaf_thickness_species <- ggplot(traits_23_NOR, aes(combined_treatment, leaf_thickness, fill = combined_treatment)) +
   geom_boxplot() +
   labs(x = "Treatment", y = "Leaf thickness (mm)")+
   theme(legend.position = "bottom")+
@@ -344,13 +346,36 @@ ggsave(filename = "RangeX_leaf_thickness_separate_species.png",
        width = 18, height = 10)
 
 
+# SLA CHE -----------------------------------------------------------------
+
+ggplot(traits_23_CHE, aes(combined_treatment, SLA, fill = combined_treatment))+
+  geom_boxplot()+
+  facet_wrap(vars(species), ncol = 5)+
+  labs(x = "Treatment", y = "SLA (mm^2/mg)")+
+  theme(legend.position = "bottom")+
+  geom_jitter(alpha = 0.5)+
+  stat_summary(fun = mean, geom = "point", shape = 20, 
+               size = 2, color = "red")
+
+# SLA NOR and CHE ------------------------------------------------------------
+ggplot(traits_NOR_CHE, aes(combined_treatment, SLA, fill = combined_treatment))+
+  geom_boxplot()+
+  facet_wrap(vars(species), ncol = 5)+
+  labs(x = "Treatment", y = "SLA (mm^2/mg)")+
+  theme(legend.position = "bottom")+
+  stat_summary(fun = mean, geom = "point", shape = 20, 
+               size = 2, color = "red")
+
+
+
+
 
 # 3D plot NOR ----------------------------------------------------------------
-traits_23_3d <- traits_23 |> 
+traits_23_NOR_3d <- traits_23_NOR |> 
   mutate(treatment_label = as.factor(combined_treatment))
 
 # Create the 3D scatter plot
-plot_3d <- plot_ly(traits_23_3d, x = ~SLA, y = ~LDMC, z = ~leaf_thickness, color = ~treatment_label, colors = "Set1") |> 
+plot_3d <- plot_ly(traits_23_NOR_3d, x = ~SLA, y = ~LDMC, z = ~leaf_thickness, color = ~treatment_label, colors = "Set1") |> 
   add_markers() |> 
   plotly::layout(scene = list(
     xaxis = list(title = "SLA (mm^2/mg)"),
@@ -363,7 +388,7 @@ plot_3d
 
 # 3d mean per species per treatment ---------------------------------------
 # Calculate the mean SLA, LDMC, and leaf thickness for each species and treatment combination
-mean_traits <- traits_23_3d |> 
+mean_traits <- traits_23_NOR_3d |> 
   group_by(species, combined_treatment) |> 
   summarise(
     mean_SLA = mean(SLA, na.rm = TRUE),
@@ -399,7 +424,7 @@ plot_ly(mean_traits, x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness, co
 
 # 3d mean per treatment ---------------------------------------
 # Calculate the mean SLA, LDMC, and leaf thickness for each  treatment combination
-mean_traits_treat <- traits_23_3d |> 
+mean_traits_treat <- traits_23_NOR_3d |> 
   group_by(combined_treatment) |> 
   summarise(
     mean_SLA = mean(SLA, na.rm = TRUE),
@@ -430,7 +455,7 @@ plot_3d_mean_treat
 
 # 3d mean per species ---------------------------------------
 # Calculate the mean SLA, LDMC, and leaf thickness for each species just to check per treatment
-mean_traits_species <- traits_23_3d |> 
+mean_traits_species <- traits_23_NOR_3d |> 
   group_by(species, combined_treatment) |> 
   summarise(
     mean_SLA = mean(SLA, na.rm = TRUE),
@@ -492,10 +517,49 @@ NOR_CHE_plot_3d_mean_treat
 #
 
 
+# 3d functional traits CHE and NOR ----------------------------------------
+# make plot with better legend
+NOR_CHE_plot_3d_mean_treat <- plot_ly() |> 
+  # Add CHE points with legend visible
+  add_markers(data = mean_traits_treat_NOR_CHE |> filter(region == "CHE"),
+              x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness,
+              color = ~combined_treatment, colors = define_colors,
+              symbol = ~region, symbols = shape_mapping,
+              marker = list(size = 18),
+              showlegend = FALSE) |> 
+  
+  # Add NOR points with legend hidden
+  add_markers(data = mean_traits_treat_NOR_CHE |> filter(region == "NOR"),
+              x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness,
+              color = ~combined_treatment, colors = define_colors,
+              symbol = ~region, symbols = shape_mapping,
+              marker = list(size = 18),
+              showlegend = TRUE) |> 
+  
+  # Layout adjustments for axis labels
+  layout(scene = list(
+    xaxis = list(title = "Mean SLA (mm^2/mg)"),
+    yaxis = list(title = "Mean LDMC (mg g-1)"),
+    zaxis = list(title = "Mean leaf thickness (mm)")
+  ))
+
+NOR_CHE_plot_3d_mean_treat <- NOR_CHE_plot_3d_mean_treat|> 
+  layout(legend = list(x = 0.8, y = 0.8))
 
 
+# Add a separate annotation for shape legend without title
+NOR_CHE_plot_3d_mean_treat <- NOR_CHE_plot_3d_mean_treat |> 
+  layout(annotations = list(
+    list(
+      x = 0.9, y = 0.4,  # Position outside the plot
+      xref = "paper", yref = "paper",
+      text = "◊ = CHE<br>● = NOR",
+      showarrow = FALSE,
+      font = list(size = 18)
+    )
+  ))
 
-
+NOR_CHE_plot_3d_mean_treat
 
 
 
@@ -505,7 +569,7 @@ NOR_CHE_plot_3d_mean_treat
 
 
 # delete samples without functional trait measurements -------------------------------------
-traits_NOR_23 <- traits_23 |> 
+traits_NOR_23 <- traits_23_NOR |> 
   filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
          | !is.na(leaf_thickness) | !is.na(SLA) | !is.na(LDMC))
 
