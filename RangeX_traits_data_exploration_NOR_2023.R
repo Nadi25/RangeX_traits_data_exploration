@@ -15,6 +15,31 @@
 
 # keep date in data cleaning 23
 
+# check in CHE:
+# very high SLA > 60
+# high leaf area but low dry mass
+# deleted for now the whole leaf
+# CHE.hi.warm.bare.wf.09.23.1 scacol
+# CHE.hi.ambi.vege.wf.05.16.1 brapin 
+# CHE.hi.ambi.bare.wf.09 hypper
+# CHE.hi.ambi.vege.wf.10 hypper
+# CHE.hi.ambi.bare.wf.09.05.1 hypper
+
+# LDMC
+# delete?
+# too high
+# CHE.hi.ambi.vege.wf.10.16.1 brapin
+# CHE.hi.ambi.vege.wf.06.01.1 brapin
+# too low
+# CHE.lo.ambi.bare.wf.09.16.2 brapin
+
+
+# check in NOR:
+# NOR SLA > 60
+# wm 19.61, dm 2.13, lt 0.21200000, la 128.5, sla 60.32864, ldmc 108.6181
+# NOR.hi.warm.vege.wf.04.13 sildio hi 4 a b5
+# delete for now
+
 # load library ------------------------------------------------------------
 library(conflicted)
 conflict_prefer_all("dplyr", quiet = TRUE)
@@ -93,6 +118,9 @@ traits_23_NOR <- traits_23_NOR |>
 traits_23_NOR <- traits_23_NOR |> 
   select(-X)
 
+traits_23_NOR <- traits_23_NOR |> 
+  filter(unique_plant_ID != "NOR.hi.warm.vege.wf.04.13")
+
 # species names -----------------------------------------------------------
 traits_23_NOR <- traits_23_NOR |> 
   mutate(species = case_when(
@@ -117,6 +145,17 @@ traits_23_CHE <- traits_23_CHE |>
   mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = " "))
 
 
+# delete leaves with too high SLA or LDMC-----------------------------------
+traits_23_CHE <- traits_23_CHE |> 
+  filter(!unique_plant_ID %in% c("CHE.hi.warm.bare.wf.09.23.1", 
+                              "CHE.hi.ambi.vege.wf.05.16.1",
+                              "CHE.hi.ambi.vege.wf.10.18.1",
+                              "CHE.hi.ambi.bare.wf.09.05.1",
+                              "CHE.hi.ambi.vege.wf.10.16.1",
+                              "CHE.hi.ambi.vege.wf.06.01.1",
+                              "CHE.lo.ambi.bare.wf.09.16.2"))
+
+
 
 # combine NOR with CHE ----------------------------------------------------
 names(traits_23_NOR)
@@ -128,8 +167,35 @@ traits_23_CHE <- traits_23_CHE |>
 
 traits_NOR_CHE <- bind_rows(traits_23_NOR, traits_23_CHE)
 
+traits_NOR_CHE <- traits_NOR_CHE |> 
+  mutate(region = case_when(region == "CHE" ~ "Switzerland", 
+                            region == "NOR" ~ "Norway"))
+
 na_counts <- colSums(is.na(traits_NOR_CHE))
 na_counts
+
+
+# checking CHE outlier ----------------------------------------------------
+ggplot(traits_23_CHE, aes(combined_treatment, SLA, fill = combined_treatment)) +
+  geom_boxplot(outlier.colour = "red", outlier.shape = 8, outlier.size = 2) +
+  facet_wrap(vars(species), ncol = 5) +
+  labs(x = "Treatment", y = "SLA (mm^2/mg)") +
+  theme(legend.position = "bottom") +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = "point", 
+               shape = 20, size = 2, color = "red")
+# very high SLA > 60
+# high leaf area but low dry mass
+# CHE.hi.warm.bare.wf.09.23.1 scacol
+# CHE.hi.ambi.vege.wf.05.16.1 brapin 
+# CHE.hi.ambi.bare.wf.09 hypper
+# CHE.hi.ambi.vege.wf.10 hypper
+
+# NOR.hi.warm.vege.wf.04 sildio NOR
+
+
+
+
 
 # plotting functional traits NOR -------------------------------------------
 # SLA ---------------------------------------------------------------------
@@ -357,7 +423,7 @@ ggplot(traits_23_CHE, aes(combined_treatment, SLA, fill = combined_treatment))+
   stat_summary(fun = mean, geom = "point", shape = 20, 
                size = 2, color = "red")
 
-# SLA NOR and CHE ------------------------------------------------------------
+# SLA NOR and CHE species ----------------------------------------------------
 ggplot(traits_NOR_CHE, aes(combined_treatment, SLA, fill = combined_treatment))+
   geom_boxplot()+
   facet_wrap(vars(species), ncol = 5)+
@@ -367,7 +433,95 @@ ggplot(traits_NOR_CHE, aes(combined_treatment, SLA, fill = combined_treatment))+
                size = 2, color = "red")
 
 
+# SLA NOR and CHE per treatment ---------------------------------------------
+# Calculate means and confidence intervals for each treatment per country
+summary_data_traits_NOR_CHE <- traits_NOR_CHE |> 
+  group_by(region, combined_treatment) |> 
+  summarise(
+    mean_SLA = mean(SLA, na.rm = TRUE),
+    ci_lower = mean_SLA - qt(0.975, df = n() - 1) * sd(SLA, na.rm = TRUE) / sqrt(n()),
+    ci_upper = mean_SLA + qt(0.975, df = n() - 1) * sd(SLA, na.rm = TRUE) / sqrt(n())
+  )
 
+
+# Define significance comparisons
+comparisons <- list(
+  c("hi ambi vege", "hi ambi bare"),
+  c("hi warm vege", "hi warm bare"),
+  c("lo ambi vege", "lo ambi bare"),
+  c("hi ambi bare", "hi warm bare"),
+  c("hi ambi vege", "hi warm vege"),
+  c("hi ambi bare", "hi warm bare"),
+  c("hi ambi vege", "lo ambi vege")
+)
+
+# Define y-positions for the significance bars
+y_positions <- c(40, 40, 40, 44, 48, 51, 54)
+
+# plot all species together
+SLA_NOR_CHE <- ggplot(traits_NOR_CHE, aes(combined_treatment, SLA, fill = combined_treatment)) +
+  geom_boxplot() +
+  geom_point(data = summary_data_traits_NOR_CHE, aes(x = combined_treatment, y = mean_SLA), color = "red", size = 3) +
+  labs(x = "Treatment", y = expression(SLA (mm^2/mg)))+
+  theme(legend.position = "none")+
+  geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
+  facet_wrap(vars(region))+
+  scale_fill_manual(values = define_colors)
+SLA_NOR_CHE
+
+ggsave(filename = "RangeX_SLA_per_treat_NOR_CHE.png", 
+       plot = SLA_NOR_CHE, 
+       path = "Graphs", 
+       width = 19, height = 8)
+
+
+# LDMC NOR and CHE per treatment ---------------------------------------------
+# Calculate means and confidence intervals for each treatment per country
+summary_data_traits_NOR_CHE_LDMC <- traits_NOR_CHE |> 
+  group_by(region, combined_treatment) |> 
+  summarise(
+    mean_LDMC = mean(LDMC, na.rm = TRUE),
+    ci_lower = mean_LDMC - qt(0.975, df = n() - 1) * sd(LDMC, na.rm = TRUE) / sqrt(n()),
+    ci_upper = mean_LDMC + qt(0.975, df = n() - 1) * sd(LDMC, na.rm = TRUE) / sqrt(n())
+  )
+
+y_positions <- c(550, 550, 550, 570, 600, 630, 670)
+
+# plot all species together
+LDMC_NOR_CHE <- ggplot(traits_NOR_CHE, aes(combined_treatment, LDMC, fill = combined_treatment)) +
+  geom_boxplot() +
+  geom_point(data = summary_data_traits_NOR_CHE_LDMC, aes(x = combined_treatment, y = mean_LDMC), color = "red", size = 3) +
+  labs(x = "Treatment", y = expression(LDMC (mg~g^{-1})))+
+  theme(legend.position = "none")+
+  geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
+  facet_wrap(vars(region))+
+  scale_fill_manual(values = define_colors)
+LDMC_NOR_CHE
+
+ggsave(filename = "RangeX_LDMC_per_treat_NOR_CHE.png", 
+       plot = LDMC_NOR_CHE, 
+       path = "Graphs", 
+       width = 19, height = 8)
+
+# LDMC NOR and CHE species ----------------------------------------------
+LDMC_NOR_CHE_species <- ggplot(traits_NOR_CHE, aes(combined_treatment, LDMC, 
+                           fill = combined_treatment))+
+  geom_boxplot()+
+  facet_wrap(vars(species), ncol = 5, scales = "free")+
+  labs(x = "Treatment", y = expression(LDMC (mg~g^{-1})))+
+  theme(legend.position = "none")+
+  stat_summary(fun = mean, geom = "point", shape = 20, 
+               size = 2, color = "red")
+LDMC_NOR_CHE_species
+
+ggsave(filename = "RangeX_LDMC_per_species_NOR_CHE.png", 
+       plot = LDMC_NOR_CHE_species, 
+       path = "Graphs", 
+       width = 19, height = 18)
+
+
+# filter interesting species ----------------------------------------------
+# leuvul
 
 
 # 3D plot NOR ----------------------------------------------------------------
