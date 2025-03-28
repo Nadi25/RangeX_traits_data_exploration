@@ -40,6 +40,8 @@
 # NOR.hi.warm.vege.wf.04.13 sildio hi 4 a b5
 # delete for now
 
+# make decision about nathan height 
+
 # load library ------------------------------------------------------------
 library(conflicted)
 conflict_prefer_all("dplyr", quiet = TRUE)
@@ -69,14 +71,21 @@ define_colors <- c(
   "lo ambi bare" = lighten("grey34", 0.7))
 
 # import data -------------------------------------------------------------
-# functional traits 2023 NOR
+# functional traits 2023 NOR ----------------------------------------------
 functional_traits_NOR <- read.csv("Data/RangeX_clean_functional_traits_NOR_2023.csv")
 
 functional_traits_NOR <- functional_traits_NOR |> 
   select(-X)
 head(functional_traits_NOR)
 
-# functional traits CHE
+# change name to date_collection
+functional_traits_NOR <- functional_traits_NOR |> 
+  rename("date_collection" = "date_collected") |> 
+  mutate(date_collection = as.Date(date_collection))
+
+
+
+# functional traits CHE ---------------------------------------------------
 functional_traits_CHE <- read.csv("Data/RangeX_clean_LeafTraits_2022_2023_CHE.csv")
 
 # filter 2023
@@ -88,14 +97,15 @@ functional_traits_CHE <- functional_traits_CHE |>
 functional_traits_CHE <- functional_traits_CHE |> 
   select(-c(C_N, C13))
 
-# demographic traits 2021-23 NOR
+
+# demographic traits 2021-23 NOR ------------------------------------------
 demo_traits_NOR <- read.csv("Data/RangeX_clean_yearly_size_2021_2022_2023_NOR.csv")
 
 # filter only 2023
 demographic_traits_NOR <- demo_traits_NOR |> 
   filter(year == 2023)
 
-# species names -----------------------------------------------------------
+# species names demo NOR
 demographic_traits_NOR <- demographic_traits_NOR |> 
   mutate(species = case_when(
     species == "cyncri" ~ "Cynosurus cristatus",
@@ -111,6 +121,42 @@ demographic_traits_NOR <- demographic_traits_NOR |>
     TRUE ~ species  # Keep other species unchanged
   ))
 
+demographic_traits_NOR <- demographic_traits_NOR |> 
+  select(-c(year, vegetative_length))
+
+
+# demographic traits 2021-23 CHE ------------------------------------------
+demo_traits_CHE <- read.csv("Data/RangeX_clean_YearlyDemographics_2021_2023_CHE.csv")
+
+# filter only 2023
+demo_traits_CHE$date_measurement <- as.Date(demo_traits_CHE$date_measurement)
+
+demographic_traits_CHE <- demo_traits_CHE |> 
+  filter(format(date_measurement, "%Y") == "2023")
+
+# filter relevant columns
+# this can change later when I update demo NOR data cleaning 
+demographic_traits_CHE <- demographic_traits_CHE |> 
+  select(-c(functional_group, date_measurement, date_planting, survival,
+            height_nathan))
+
+# species names
+demographic_traits_CHE <- demographic_traits_CHE |> 
+  mutate(species = case_when(
+    species == "brapin" ~ "Brachypodium pinnatum",
+    species == "daucar" ~ "Daucus carota",
+    species == "broere" ~ "Bromus erectus",
+    species == "hypper" ~ "Hypericum perforatum",
+    species == "scacol" ~ "Scabiosa columbaria",
+    species == "medlup" ~ "Medicago lupulina",
+    species == "plamed" ~ "Plantago media",
+    species == "silvul" ~ "Silene vulgaris",
+    species == "cenjac" ~ "Centaurea jacea",
+    species == "salpra" ~ "Salvia pratensis",
+    TRUE ~ species  # Keep other species unchanged
+  ))
+
+
 # import meta data --------------------------------------------------------
 # NOR
 metadata_NOR <- read.csv("Data/RangeX_metadata_focal_NOR.csv")
@@ -122,7 +168,7 @@ head(metadata_CHE)
 dput(colnames(metadata_CHE))
 
 
-# merge trait data with meta data NOR ----------------------------------------
+# merge functional trait data with meta data NOR -----------------------------
 traits_23_NOR <- left_join(metadata_NOR, functional_traits_NOR, by = c("unique_plant_ID", "species"))
 nrow(traits_23_NOR)
 
@@ -151,7 +197,7 @@ traits_23_NOR <- traits_23_NOR |>
     TRUE ~ species  # Keep other species unchanged
   ))
 
-# merge trait data with meta data CHE ----------------------------------------
+# merge functional trait data with meta data CHE ----------------------------
 traits_23_CHE <- left_join(metadata_CHE, functional_traits_CHE, by = c("unique_plant_ID", "species"))
 nrow(traits_23_CHE)
 
@@ -169,9 +215,23 @@ traits_23_CHE <- traits_23_CHE |>
                               "CHE.hi.ambi.vege.wf.06.01.1",
                               "CHE.lo.ambi.bare.wf.09.16.2"))
 
+# species names
+traits_23_CHE <- traits_23_CHE |> 
+  mutate(species = case_when(
+    species == "brapin" ~ "Brachypodium pinnatum",
+    species == "daucar" ~ "Daucus carota",
+    species == "broere" ~ "Bromus erectus",
+    species == "hypper" ~ "Hypericum perforatum",
+    species == "scacol" ~ "Scabiosa columbaria",
+    species == "medlup" ~ "Medicago lupulina",
+    species == "plamed" ~ "Plantago media",
+    species == "silvul" ~ "Silene vulgaris",
+    species == "cenjac" ~ "Centaurea jacea",
+    species == "salpra" ~ "Salvia pratensis",
+    TRUE ~ species  # Keep other species unchanged
+  ))
 
-
-# combine NOR with CHE ----------------------------------------------------
+# combine functional NOR with CHE ----------------------------------------
 names(traits_23_NOR)
 names(traits_23_CHE)
 
@@ -188,6 +248,13 @@ traits_NOR_CHE <- traits_NOR_CHE |>
 na_counts <- colSums(is.na(traits_NOR_CHE))
 na_counts
 
+# filter interesting species CHE NOR ------------------------------
+# leuvul
+# both hypericums 
+# both plantagos
+# cynosurus
+# bromus
+# medicago
 
 # checking CHE outlier ----------------------------------------------------
 ggplot(traits_23_CHE, aes(combined_treatment, SLA, fill = combined_treatment)) +
@@ -213,6 +280,19 @@ traits_fun_demo_NOR <- left_join(demographic_traits_NOR,
                                  traits_23_NOR,
                                  by = c("unique_plant_ID", "species"))
 
+
+# combine functional and demographic traits CHE ------------------------------
+traits_fun_demo_CHE <- left_join(demographic_traits_CHE, 
+                                 traits_23_CHE,
+                                 by = c("unique_plant_ID", "species"))
+
+
+
+# combine NOR CHE functional and demographic traits -----------------------
+names(traits_fun_demo_NOR)
+names(traits_fun_demo_CHE)
+traits_fun_demo_NOR_CHE <- bind_rows(traits_fun_demo_NOR, 
+                                     traits_fun_demo_CHE)
 
 
 
@@ -436,7 +516,6 @@ ggsave(filename = "RangeX_leaf_thickness_separate_species.png",
 
 ggplot(traits_23_CHE, aes(combined_treatment, SLA, fill = combined_treatment))+
   geom_boxplot()+
-  facet_wrap(vars(species), ncol = 5)+
   labs(x = "Treatment", y = "SLA (mm^2/mg)")+
   theme(legend.position = "bottom")+
   geom_jitter(alpha = 0.5)+
@@ -444,14 +523,22 @@ ggplot(traits_23_CHE, aes(combined_treatment, SLA, fill = combined_treatment))+
                size = 2, color = "red")
 
 # SLA NOR and CHE species ----------------------------------------------------
-ggplot(traits_NOR_CHE, aes(combined_treatment, SLA, fill = combined_treatment))+
+SLA_NOR_CHE_species <- ggplot(traits_NOR_CHE, aes(combined_treatment, SLA, fill = combined_treatment))+
   geom_boxplot()+
   facet_wrap(vars(species), ncol = 5)+
-  labs(x = "Treatment", y = "SLA (mm^2/mg)")+
+  labs(x = "Treatment", y = expression(SLA (mm^2/mg)))+
   theme(legend.position = "bottom")+
   stat_summary(fun = mean, geom = "point", shape = 20, 
-               size = 2, color = "red")
+               size = 2, color = "red")+
+  scale_fill_manual(values = define_colors)+
+  theme(legend.position = "none")+
+  facet_wrap(vars(species), ncol = 5, scales = "free")
+SLA_NOR_CHE_species
 
+ggsave(filename = "RangeX_SLA_per_species_NOR_CHE.png", 
+       plot = SLA_NOR_CHE_species, 
+       path = "Graphs", 
+       width = 20, height = 18)
 
 # SLA NOR and CHE per treatment ---------------------------------------------
 # Calculate means and confidence intervals for each treatment per country
@@ -540,8 +627,6 @@ ggsave(filename = "RangeX_LDMC_per_species_NOR_CHE.png",
        width = 19, height = 18)
 
 
-# filter interesting species ----------------------------------------------
-# leuvul
 
 
 
@@ -874,17 +959,17 @@ NOR_CHE_plot_3d_mean_treat
 
 
 
-# delete samples without functional trait measurements -------------------------------------
+# delete samples without functional trait measurements NOR -------------------------------------
 traits_NOR_23 <- traits_23_NOR |> 
   filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
          | !is.na(leaf_thickness) | !is.na(SLA) | !is.na(LDMC))
 
-length(traits_NOR_23$region) # 576 oh no, why not 597?
+length(traits_NOR_23$region) # 596 now
 
 
 
 
-# PCA ---------------------------------------------------------------------
+# PCA NOR -------------------------------------------------------------------
 # Convert integer columns to numeric
 traits_NOR_23 <- traits_NOR_23 |> 
   mutate(across(where(is.integer), as.numeric))
@@ -898,11 +983,7 @@ traits_NOR_23_PCA <- traits_NOR_23 |>
 
 # Select numerical columns for PCA
 numerical_columns <- traits_NOR_23_PCA |> 
-  select(height_vegetative_str, height_reproductive_str,
-         height_vegetative, height_reproductive,
-         leaf_length1, leaf_width, 
-         petiole_length, 
-         number_leaves, number_tillers, number_flowers)
+  select(leaf_thickness, leaf_area, wet_mass, dry_mass, SLA, LDMC)
 
 # ok, so you cant out in block ... 
 
