@@ -40,6 +40,13 @@
 # NOR.hi.warm.vege.wf.04.13 sildio hi 4 a b5
 # delete for now
 
+# NOR.lo.ambi.bare.wf.04.11 very low LDMC value in tripra
+# delete for now
+
+# what is wrong here?? NOR.lo.ambi.bare.wf.07.30 cenig
+# delete for now
+
+
 # make decision about nathan height 
 
 # load library ------------------------------------------------------------
@@ -55,6 +62,7 @@ library(colorspace)
 library(scales)
 library(ggradar)
 library(fmsb)
+library(vegan)
 
 library(FactoMineR)
 library(factoextra)
@@ -179,7 +187,12 @@ traits_23_NOR <- traits_23_NOR |>
   select(-X)
 
 traits_23_NOR <- traits_23_NOR |> 
-  filter(unique_plant_ID != "NOR.hi.warm.vege.wf.04.13")
+  filter(!unique_plant_ID %in% c("NOR.hi.warm.vege.wf.04.13", 
+                                 "NOR.lo.ambi.bare.wf.04.11",
+                                 "NOR.lo.ambi.bare.wf.07.30"))
+
+# NOR.lo.ambi.bare.wf.04.11 dont delete?
+
 
 # species names -----------------------------------------------------------
 traits_23_NOR <- traits_23_NOR |> 
@@ -1007,11 +1020,20 @@ fviz_pca_ind(pca_result, geom.ind = "point", pointshape = 21,
 
 
 # prepare PCA - delete samples without functional trait measurements NOR -------------------------------------
+library(ggvegan)
 traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR |> 
   filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
          | !is.na(leaf_thickness) | !is.na(SLA) | !is.na(LDMC))
 
-length(traits_fun_demo_NOR_PCA$region) # 575 now
+length(traits_fun_demo_NOR_PCA$region) # 574 now
+
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |> 
+  select(leaf_thickness, leaf_area, wet_mass, dry_mass, SLA, LDMC,
+         height_vegetative_str, height_vegetative, leaf_length1,
+         number_leaves, number_flowers, species, combined_treatment)
+
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |>
+  na.omit()
 
 
 # PCA NOR -------------------------------------------------------------------
@@ -1037,14 +1059,233 @@ pca_result_NOR <- PCA(numerical_columns_NOR, scale.unit = TRUE, ncp = 2, graph =
 fviz_pca_ind(pca_result_NOR, geom.ind = "point", pointshape = 21, 
              pointsize = 2, fill.ind = traits_fun_demo_NOR_PCA$species, 
              palette = "jco", addEllipses = TRUE, 
-             label = "var", col.var = "black", repel = TRUE)
+             label = "var", col.var = "black", repel = TRUE) +
+  coord_equal()
 
 # PCA treatment
 fviz_pca_ind(pca_result_NOR, geom.ind = "point", pointshape = 21, 
              pointsize = 2, 
              fill.ind = traits_fun_demo_NOR_PCA$combined_treatment, 
              palette = "jco", addEllipses = TRUE, 
-             label = "var", col.var = "black", repel = TRUE) 
+             label = "var", col.var = "black", repel = TRUE)+
+  coord_equal() 
+
+
+
+# use vegan package -------------------------------------------------------
+i <- iris
+pairs(i,
+      lower.panel = NULL, 
+      col = as.numeric(iris$Species))
+
+iris.pca <- princomp(iris[,-5])
+
+biplot(iris.pca)
+
+
+
+########
+
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |> 
+  select(leaf_thickness, leaf_area, wet_mass, dry_mass, SLA, LDMC,
+         height_vegetative_str, height_vegetative, leaf_length1,
+         number_leaves, number_flowers, species, combined_treatment)
+
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |>
+  na.omit()
+
+pca_result_NOR <- rda(traits_fun_demo_NOR_PCA[,-c(12, 13)])
+
+biplot(pca_result_NOR)
+
+biplot(pca_result_NOR,
+       display = c("sites", 
+                   "species"),
+       type = c("text",
+                "points"))
+
+ordihull(pca_result_NOR,
+         group = traits_fun_demo_NOR_PCA$combined_treatment)
+
+
+
+biplot(pca_result_NOR,
+       display = c("sites", 
+                   "species"),
+       type = c("text",
+                "points"))
+
+#get names of species
+## levels() extracts fator levels
+## from the column
+spp.names <- levels(traits_fun_demo_NOR_PCA$combined_treatment)
+
+#Add hulls
+ordihull(pca_result_NOR,
+         group = traits_fun_demo_NOR_PCA$combined_treatment,
+         col = c(1,2,3, 4, 5, 6))
+
+
+#Add legend
+legend("topright",
+       col = c(1,2,3), 
+       lty = 1,
+       legend = spp.names)
+
+
+
+# rda
+rda_model <- rda(traits_fun_demo_NOR_PCA[, c("leaf_thickness", "leaf_area",
+                                             "wet_mass", "dry_mass", "SLA", 
+                                             "LDMC", "height_vegetative_str",
+                                             "height_vegetative", 
+                                             "leaf_length1", "number_leaves", 
+                                             "number_flowers")] ~
+                   traits_fun_demo_NOR_PCA[, c("combined_treatment")],
+                 data = traits_fun_demo_NOR_PCA)
+
+plot(rda_model)
+
+
+
+# this one! perform rda and plot it -----------------------------------------
+# prepare PCA - delete samples without functional trait measurements NOR 
+library(ggvegan)
+library(ggrepel)
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR |> 
+  filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
+         | !is.na(leaf_thickness) | !is.na(SLA) | !is.na(LDMC))
+
+length(traits_fun_demo_NOR_PCA$region) # 573 now
+
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |> 
+  select(leaf_thickness, leaf_area, wet_mass, dry_mass, SLA, LDMC,
+         height_vegetative_str, height_vegetative, leaf_length1,
+         number_leaves, number_flowers, species, combined_treatment)
+
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |>
+  na.omit()
+
+# if you import data with read_cvs you would get a tibble and 
+# would not need drop = FALSE
+species_data <- traits_fun_demo_NOR_PCA[, "species", drop = FALSE]
+trait_data <- traits_fun_demo_NOR_PCA |> select(leaf_thickness: number_flowers)
+meta_data <- traits_fun_demo_NOR_PCA |> 
+  select(species, combined_treatment)
+
+rda_NOR <- rda(trait_data ~ combined_treatment + Condition(species), data = meta_data, scale = TRUE)
+
+rda_NOR |> anova()
+
+fortify(rda_NOR, display = "cn")
+
+library(stringr)
+rda_NOR_cn <- fortify(rda_NOR, display = "cn") |> 
+  mutate(label = str_remove(label, "combined_treatment"))
+
+
+# plot
+autoplot(rda_NOR) 
+
+# zoom in 
+autoplot(rda_NOR) + coord_equal(ylim = c(-2,2))
+
+
+# find outlier
+rda_scores <- fortify(rda_NOR, display = "sites")
+
+# Convert to data frame for easier handling
+rda_scores_df <- as.data.frame(rda_scores)
+
+# Identify the outlier (e.g., the point with the minimum value on RDA1 axis)
+outlier_index <- which.min(rda_scores_df$RDA1)
+
+# Print the outlier index and corresponding scores
+print(outlier_index)
+print(rda_scores_df[outlier_index, ])
+
+# Match the outlier index to the original data
+outlier_data <- traits_fun_demo_NOR_PCA[outlier_index, ]
+print(outlier_data)
+
+# NOR.lo.ambi.bare.wf.07.30 cenig deleted above
+# not sure what is wrong but should check
+
+
+# make nicer plot
+
+# Extract site scores
+site_scores <- as.data.frame(fortify(rda_NOR, display = "sites"))
+site_scores$Site <- rownames(site_scores)
+
+# Extract treat scores
+site_scores$combined_treatment <- traits_fun_demo_NOR_PCA$combined_treatment 
+
+# Extract species scores
+# means traits
+fortify(rda_NOR, display = "species")
+
+species_scores <- as.data.frame(fortify(rda_NOR, display = "species"))
+species_scores$Species <- rownames(species_scores)
+
+# Extract trait loadings (constraints)
+trait_loadings <- as.data.frame(fortify(rda_NOR, display = "bp"))
+trait_loadings$Trait <- rownames(trait_loadings)
+
+trait_loadings <- trait_loadings |> 
+  mutate(label = str_remove(label, "combined_treatment"))
+
+# plot
+RDA_NOR <- ggplot() +
+  # Site points with colors by treatment
+  geom_point(data = site_scores, 
+             aes(x = RDA1, y = RDA2, color = combined_treatment), 
+             size = 4, alpha = 0.4) +
+  
+  # Species points in red
+  geom_point(data = species_scores, 
+             aes(x = RDA1, y = RDA2), 
+             color = "red", size = 3, alpha = 0.6) +
+  
+  # Ellipses for treatment groups
+  stat_ellipse(data = site_scores, 
+               aes(x = RDA1, y = RDA2, color = combined_treatment), 
+               size = 1) +
+  
+  # Species labels
+  geom_text(data = species_scores, 
+            aes(x = RDA1, y = RDA2, label = label), 
+            vjust = -1, hjust = 1, 
+            color = "blue", size = 10) +
+  
+  # Arrows
+  geom_segment(data = trait_loadings, 
+               aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(length = unit(0.2, "cm")), 
+               color = "blue", size = 1) +
+  
+  # Trait labels with ggrepel to avoid overlap
+  geom_text_repel(data = trait_loadings, 
+                  aes(x = RDA1, y = RDA2, label = label), size = 10) +
+  
+  # Customize plot
+  labs(x = "RDA1", 
+       y = "RDA2", 
+       color = "Treatment") +
+  theme(legend.position = "right")+
+  scale_color_manual(values = define_colors)
+RDA_NOR
+
+ggsave(filename = "RangeX_RDA_NOR.png", 
+       plot = RDA_NOR, 
+       path = "Graphs", 
+       width = 15, height = 15)
+
+
+
+
+
+
 
 
 
