@@ -53,7 +53,7 @@ library(plotly)
 conflicts_prefer(plotly::layout)
 library(colorspace)
 library(scales)
-library(ggra)
+library(ggradar)
 library(fmsb)
 
 library(FactoMineR)
@@ -1003,4 +1003,49 @@ fviz_pca_ind(pca_result, geom.ind = "point", pointshape = 21,
              palette = "jco", addEllipses = TRUE, 
              label = "var", col.var = "black", repel = TRUE) +
   theme_minimal()
+
+
+
+# prepare PCA - delete samples without functional trait measurements NOR -------------------------------------
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR |> 
+  filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
+         | !is.na(leaf_thickness) | !is.na(SLA) | !is.na(LDMC))
+
+length(traits_fun_demo_NOR_PCA$region) # 575 now
+
+
+# PCA NOR -------------------------------------------------------------------
+# Convert integer columns to numeric
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |> 
+  mutate(across(where(is.integer), as.numeric))
+
+# # Fill missing values with the mean of each column
+# traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |> 
+#   mutate(across(where(is.numeric), ~replace_na(., mean(., na.rm = TRUE))))
+
+# Select numerical columns for PCA
+numerical_columns_NOR <- traits_fun_demo_NOR_PCA |> 
+  select(leaf_thickness, leaf_area, wet_mass, dry_mass, SLA, LDMC,
+          height_vegetative_str, height_vegetative, leaf_length1,
+          number_leaves, number_flowers)
+
+
+# Perform PCA
+pca_result_NOR <- PCA(numerical_columns_NOR, scale.unit = TRUE, ncp = 2, graph = FALSE)
+
+# Visualize PCA results - species
+fviz_pca_ind(pca_result_NOR, geom.ind = "point", pointshape = 21, 
+             pointsize = 2, fill.ind = traits_fun_demo_NOR_PCA$species, 
+             palette = "jco", addEllipses = TRUE, 
+             label = "var", col.var = "black", repel = TRUE)
+
+# PCA treatment
+fviz_pca_ind(pca_result_NOR, geom.ind = "point", pointshape = 21, 
+             pointsize = 2, 
+             fill.ind = traits_fun_demo_NOR_PCA$combined_treatment, 
+             palette = "jco", addEllipses = TRUE, 
+             label = "var", col.var = "black", repel = TRUE) 
+
+
+
 
