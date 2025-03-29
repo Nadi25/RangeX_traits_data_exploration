@@ -137,7 +137,7 @@ mean_traits_treat_NOR_CHE <- traits_NOR_CHE |>
   ungroup()
 
 # define the shapes for each region
-shape_mapping <- c("NOR" = "circle", "CHE" = "diamond")
+shape_mapping <- c("Norway" = "circle", "Switzerland" = "diamond")
 
 # plot
 NOR_CHE_plot_3d_mean_treat <- plot_ly(mean_traits_treat_NOR_CHE, x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness, color = ~combined_treatment, 
@@ -158,7 +158,7 @@ NOR_CHE_plot_3d_mean_treat
 #
 
 
-# 3d functional traits CHE and NOR ----------------------------------------
+# 3d functional traits CHE and NOR final plot --------------------------------
 # make plot with better legend
 NOR_CHE_plot_3d_mean_treat <- plot_ly() |> 
   # Add CHE points with legend visible
@@ -195,12 +195,13 @@ NOR_CHE_plot_3d_mean_treat <- NOR_CHE_plot_3d_mean_treat |>
     list(
       x = 0.9, y = 0.4,  # Position outside the plot
       xref = "paper", yref = "paper",
-      text = "◊ = CHE<br>● = NOR",
+      text = "◊ = Switzerland<br>● = Norway",
       showarrow = FALSE,
       font = list(size = 18)
     )
   ))
 
-NOR_CHE_plot_3d_mean_treat
+NOR_CHE_plot_3d_mean_treat 
+
 
 
