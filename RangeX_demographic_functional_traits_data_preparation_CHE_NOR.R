@@ -107,14 +107,16 @@ functional_traits_CHE <- functional_traits_CHE |>
 
 
 # demographic traits 2021-23 NOR ------------------------------------------
-demo_traits_NOR <- read.csv("Data/RangeX_clean_yearly_size_2021_2022_2023_NOR.csv")
+# demo_traits_NOR <- read.csv("Data/RangeX_clean_yearly_size_2021_2022_2023_NOR.csv")
+# 
+# # filter only 2023
+# demographic_traits_NOR <- demo_traits_NOR |> 
+#   filter(year == 2023)
 
-# filter only 2023
-demographic_traits_NOR <- demo_traits_NOR |> 
-  filter(year == 2023)
+demo_traits_NOR <- read_csv("Data/RangeX_clean_traits_2023.csv")
 
 # species names demo NOR
-demographic_traits_NOR <- demographic_traits_NOR |> 
+demographic_traits_NOR <- demo_traits_NOR |> 
   mutate(species = case_when(
     species == "cyncri" ~ "Cynosurus cristatus",
     species == "sucpra" ~ "Succisa pratensis",
@@ -130,7 +132,7 @@ demographic_traits_NOR <- demographic_traits_NOR |>
   ))
 
 demographic_traits_NOR <- demographic_traits_NOR |> 
-  select(-c(year, vegetative_length))
+  select(-year)
 
 
 # demographic traits 2021-23 CHE ------------------------------------------
@@ -167,24 +169,28 @@ demographic_traits_CHE <- demographic_traits_CHE |>
 
 # import meta data --------------------------------------------------------
 # NOR
-metadata_NOR <- read.csv("Data/RangeX_metadata_focal_NOR.csv")
+metadata_NOR <- read_csv("Data/RangeX_metadata_focal_NOR.csv")
 head(metadata_NOR)
 dput(colnames(metadata_NOR))
+
+# have combined treat already here 
+metadata_NOR <- metadata_NOR |> 
+  mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = " "))
+
+metadata_NOR <- metadata_NOR |> 
+  select(-...1)
+
 # CHE
-metadata_CHE <- read.csv("Data/RangeX_clean_MetadataFocal_CHE.csv")
+metadata_CHE <- read_csv("Data/RangeX_clean_MetadataFocal_CHE.csv")
 head(metadata_CHE)
 dput(colnames(metadata_CHE))
 
+metadata_CHE <- metadata_CHE |> 
+  mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = " "))
 
 # merge functional trait data with meta data NOR -----------------------------
 traits_23_NOR <- left_join(metadata_NOR, functional_traits_NOR, by = c("unique_plant_ID", "species"))
 nrow(traits_23_NOR)
-
-traits_23_NOR <- traits_23_NOR |> 
-  mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = " "))
-
-traits_23_NOR <- traits_23_NOR |> 
-  select(-X)
 
 traits_23_NOR <- traits_23_NOR |> 
   filter(!unique_plant_ID %in% c("NOR.hi.warm.vege.wf.04.13", 
@@ -213,10 +219,6 @@ traits_23_NOR <- traits_23_NOR |>
 # merge functional trait data with meta data CHE ----------------------------
 traits_23_CHE <- left_join(metadata_CHE, functional_traits_CHE, by = c("unique_plant_ID", "species"))
 nrow(traits_23_CHE)
-
-traits_23_CHE <- traits_23_CHE |> 
-  mutate(combined_treatment = paste(site, treat_warming, treat_competition, sep = " "))
-
 
 # delete leaves with too high SLA or LDMC-----------------------------------
 traits_23_CHE <- traits_23_CHE |> 
@@ -250,7 +252,15 @@ names(traits_23_CHE)
 
 traits_23_CHE <- traits_23_CHE |> 
   mutate(plot_ID_original = as.character(plot_ID_original),
-         position_ID_original = as.character(position_ID_original))
+         position_ID_original = as.character(position_ID_original),
+         position_ID = as.character(position_ID),
+         block_ID = as.character(block_ID))
+
+traits_23_NOR <- traits_23_NOR |> 
+  mutate(plot_ID_original = as.character(plot_ID_original),
+         position_ID_original = as.character(position_ID_original),
+         block_ID = as.character(block_ID),
+         position_ID = as.character(position_ID),)
 
 traits_NOR_CHE <- bind_rows(traits_23_NOR, traits_23_CHE)
 
@@ -261,13 +271,7 @@ traits_NOR_CHE <- traits_NOR_CHE |>
 na_counts <- colSums(is.na(traits_NOR_CHE))
 na_counts
 
-# filter interesting species CHE NOR ------------------------------
-# leuvul
-# both hypericums 
-# both plantagos
-# cynosurus
-# bromus
-# medicago
+
 
 # checking CHE outlier ----------------------------------------------------
 ggplot(traits_23_CHE, aes(combined_treatment, SLA, fill = combined_treatment)) +
@@ -293,6 +297,11 @@ traits_fun_demo_NOR <- left_join(demographic_traits_NOR,
                                  traits_23_NOR,
                                  by = c("unique_plant_ID", "species"))
 
+# 3 NA for combined treatment
+# NOR.hi.warm.vege.wf.04.13
+# NOR.lo.ambi.bare.wf.04.11
+# NOR.lo.ambi.bare.wf.07.30
+
 
 # combine functional and demographic traits CHE ------------------------------
 traits_fun_demo_CHE <- left_join(demographic_traits_CHE, 
@@ -307,5 +316,18 @@ names(traits_fun_demo_CHE)
 traits_fun_demo_NOR_CHE <- bind_rows(traits_fun_demo_NOR, 
                                      traits_fun_demo_CHE)
 
+
+# filter interesting species CHE NOR ------------------------------
+# leuvul
+# both hypericums 
+# both plantagos
+# cynosurus
+# bromus
+# medicago
+species_subset <- traits_fun_demo_NOR_CHE |> 
+  filter(species %in% c("Leucanthemum vulgare", "Hypericum maculatum",
+                      "Hypericum perforatum", "Plantago lanceolata",
+                      "Plantago media", "Cynosurus cristatus",
+                      "Bromus erectus", "Salvia pratensis"))
 
 
