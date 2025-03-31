@@ -8,3 +8,6 @@ Data/
 
 # don't upload graphs
 Graphs/
+
+# don't upload powerpoint
+RangeX_traits_data_exploration.pptx
