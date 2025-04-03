@@ -175,15 +175,14 @@ NOR_CHE_plot_3d_mean_treat <- plot_ly() |>
               x = ~mean_SLA, y = ~mean_LDMC, z = ~mean_leaf_thickness,
               color = ~combined_treatment, colors = define_colors,
               symbol = ~region, symbols = shape_mapping,
-              marker = list(size = 18),
+              marker = list(size = 20),
               showlegend = TRUE) |> 
   
   # Layout adjustments for axis labels
   layout(scene = list(
-    xaxis = list(title = "Mean SLA (mm^2/mg)"),
-    yaxis = list(title = "Mean LDMC (mg g-1)"),
-    zaxis = list(title = "Mean leaf thickness (mm)")
-  ))
+    xaxis = list(title = "Mean SLA (mm\u00B2/mg)", titlefont  = list(size = 21)),
+    yaxis = list(title = "Mean LDMC (mg g\u207B\u00B9)", titlefont = list(size = 21)),
+    zaxis = list(title = "Mean leaf thickness (mm)", titlefont = list(size = 21))))
 
 NOR_CHE_plot_3d_mean_treat <- NOR_CHE_plot_3d_mean_treat|> 
   layout(legend = list(x = 0.8, y = 0.8))
@@ -195,9 +194,9 @@ NOR_CHE_plot_3d_mean_treat <- NOR_CHE_plot_3d_mean_treat |>
     list(
       x = 0.9, y = 0.4,  # Position outside the plot
       xref = "paper", yref = "paper",
-      text = "◊ = Switzerland<br>● = Norway",
+      text = "◊ Switzerland<br>● Norway",
       showarrow = FALSE,
-      font = list(size = 18)
+      titlefont = list(size = 22)
     )
   ))
 
