@@ -1,13 +1,13 @@
 
-# RangeX data exploration demographic and functional traits ------------
+# RangeX data preparation demographic and functional traits ------------
 
 ## Data used: RangeX_clean_functional_traits_NOR_2023.csv
 ##            RangeX_clean_yearly_size_2021_2022_2023_NOR.csv
 ##            RangeX_metadata_focal_NOR.csv
 ## Date:      24.03.25
 ## Author:    Nadine Arzt
-## Purpose:   Combine functional traits with demographic traits and
-##            explore the data
+## Purpose:   Data preparation - Combine functional traits with demographic 
+##            traits and explore the data
 
 
 # questions / comments ----------------------------------------------------
@@ -46,8 +46,12 @@
 # what is wrong here?? NOR.lo.ambi.bare.wf.07.30 cenig
 # delete for now
 
-
 # make decision about nathan height 
+
+# leaf thickness CHE: outlier in Brachypodium and Daucus--> check!!
+# CHE.hi.ambi.bare.wf.08.16.1 = 14.6 must be typo --> exclude for now
+# CHE.hi.ambi.vege.wf.09.13.2 = 6.8 must be typo --> exclude for now
+
 
 # load library ------------------------------------------------------------
 library(conflicted)
@@ -228,7 +232,9 @@ traits_23_CHE <- traits_23_CHE |>
                                  "CHE.hi.ambi.bare.wf.09.05.1",
                                  "CHE.hi.ambi.vege.wf.10.16.1",
                                  "CHE.hi.ambi.vege.wf.06.01.1",
-                                 "CHE.lo.ambi.bare.wf.09.16.2"))
+                                 "CHE.lo.ambi.bare.wf.09.16.2",
+                                 "CHE.hi.ambi.bare.wf.08.16.1", # very high leaf thickness
+                                 "CHE.hi.ambi.vege.wf.09.13.2"))# very high leaf thickness
 
 # species names
 traits_23_CHE <- traits_23_CHE |> 
