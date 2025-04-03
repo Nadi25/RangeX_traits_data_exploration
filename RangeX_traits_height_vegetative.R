@@ -137,14 +137,17 @@ summary_data_traits <- traits_fun_demo |>
 # Define y-positions for the significance bars
 y_positions <- c(60, 60, 60, 63, 67, 71, 74)
 
+theme_set(theme_bw(base_size = 30))
+
 height_veg <- ggplot(traits_fun_demo, aes(combined_treatment, height_vegetative, fill = combined_treatment)) +
   geom_boxplot() +
   geom_point(data = summary_data_traits, aes(x = combined_treatment, y = mean_height_veg), color = "red", size = 3) +
-  labs(x = "Treatment", y = "height vegetative (cm)")+
+  labs(x = "Treatment", y = "Height vegetative (cm)")+
   theme(legend.position = "none")+
   geom_signif(comparisons = comparisons, map_signif_level = TRUE, y_position = y_positions)+
   facet_wrap(vars(region), scale = "free")+
-  scale_fill_manual(values = define_colors)
+  scale_fill_manual(values = define_colors)+
+  guides(x = guide_axis(n.dodge = 2))
 height_veg
 
 
