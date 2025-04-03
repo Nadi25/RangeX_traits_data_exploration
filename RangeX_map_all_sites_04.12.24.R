@@ -134,7 +134,11 @@ globe <- ggplot(data = world) +
     
     # Make graticule (grid) lines darker and more visible
     panel.grid.major = element_line(color = "gray40", size = 0.6),
-    panel.grid.minor = element_line(color = "gray40", size = 0.6)
+    panel.grid.minor = element_line(color = "gray40", size = 0.6),
+    
+    # Change the background color to light blue
+    panel.background = element_rect(fill = "beige", color = NA),
+    plot.background = element_rect(fill = "beige", color = NA)
   )
 globe
 
