@@ -36,12 +36,11 @@ traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |>
 length(traits_fun_demo_NOR_PCA$leaf_thickness) # 451 leaves
 
 
-# PCA NOR -------------------------------------------------------------------
 # Convert integer columns to numeric
 traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |> 
   mutate(across(where(is.integer), as.numeric))
 
-# this one! perform rda and plot it -----------------------------------------
+# NOR this one! perform rda and plot it -----------------------------------------
 # prepare PCA - delete samples without functional trait measurements NOR 
 traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR |> 
   filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
@@ -476,95 +475,78 @@ ggsave(filename = "RangeX_RDA_CHE_poster_zoom.png",
        width = 15, height = 15)
 
 
-# NOR + CHE ------------------------------------------------------------------
-# prepare PCA - delete samples without functional trait measurements NOR -------------------------------------
-traits_fun_demo_NOR_CHE_PCA <- traits_fun_demo_NOR_CHE |> 
+
+# RDA final without wet mass ------------------------------------------------
+# dont use wet mas because it is closely linked to dry mass
+# NOR ---------------------------------------------------------------------
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR |> 
   filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
          | !is.na(leaf_thickness) | !is.na(SLA) | !is.na(LDMC))
 
-length(traits_fun_demo_NOR_CHE_PCA$region) # 1123 now
+length(traits_fun_demo_NOR_PCA$region) # 558 now
 
-traits_fun_demo_NOR_CHE_PCA <- traits_fun_demo_NOR_CHE_PCA |> 
-  select(leaf_thickness, leaf_area, wet_mass, dry_mass, SLA, LDMC,
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |> 
+  select(leaf_thickness, leaf_area, dry_mass, SLA, LDMC,
          height_vegetative_str, height_vegetative, leaf_length1,
-         number_leaves,  species, combined_treatment, region)
+         number_leaves, number_flowers, species, combined_treatment,
+         treat_warming, treat_competition)
 
-traits_fun_demo_NOR_CHE_PCA <- traits_fun_demo_NOR_CHE_PCA |> 
-  mutate(combined_treatment_region = paste(region, combined_treatment, sep = " "))
-
-na_counts <- colSums(is.na(traits_fun_demo_NOR_CHE_PCA))
-na_counts
-
-# number_flowers has 301 NAs --> maybe take it out?
-# gives 960 leaves
-
-traits_fun_demo_NOR_CHE_PCA <- traits_fun_demo_NOR_CHE_PCA |>
+traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |>
   na.omit()
 
-length(traits_fun_demo_NOR_CHE_PCA$leaf_thickness) #960, but 674 leaves with #flowers
+length(traits_fun_demo_NOR_PCA$leaf_thickness) # 451 now
 
 
 
-# species, trait, meta data -----------------------------------------------
-species_data <- traits_fun_demo_NOR_CHE_PCA |> 
+species_data <- traits_fun_demo_NOR_PCA |> 
   select(species)
-trait_data <- traits_fun_demo_NOR_CHE_PCA |> select(leaf_thickness: number_leaves)
-meta_data <- traits_fun_demo_NOR_CHE_PCA |> 
-  select(species, region, combined_treatment)
+trait_data <- traits_fun_demo_NOR_PCA |> select(leaf_thickness: number_flowers)
+meta_data <- traits_fun_demo_NOR_PCA |> 
+  select(species, combined_treatment, treat_warming, treat_competition)
 
-meta_data <- meta_data |> 
-  mutate(region = factor(region), 
-         combined_treatment = factor(combined_treatment))
+rda_NOR <- rda(trait_data ~ combined_treatment + Condition(species), data = meta_data, scale = TRUE)
 
-meta_data <- meta_data |> 
-  mutate(combined_treatment_region = paste(combined_treatment, region, sep = " "))
+rda_NOR |> anova()
 
-
-rda_NOR_CHE <- rda(trait_data ~ combined_treatment_region  + Condition(species), data = meta_data, scale = TRUE)
-
-rda_NOR_CHE |> anova()
+summary(rda_NOR)
 
 
-# Fortify -----------------------------------------------------------------
 # Extract site scores
-site_scores <- as.data.frame(fortify(rda_NOR_CHE, display = "sites"))
+site_scores <- as.data.frame(fortify(rda_NOR, display = "sites"))
 site_scores$Site <- rownames(site_scores)
 
 # Extract treat scores
-site_scores$combined_treatment_region <- traits_fun_demo_NOR_CHE_PCA$combined_treatment_region 
-
-site_scores$region <- traits_fun_demo_NOR_CHE_PCA$region  
-
+site_scores$combined_treatment <- traits_fun_demo_NOR_PCA$combined_treatment 
 
 # Extract species scores
 # means traits
-fortify(rda_NOR_CHE, display = "species")
+fortify(rda_NOR, display = "species")
 
-species_scores <- as.data.frame(fortify(rda_NOR_CHE, display = "species"))
+species_scores <- as.data.frame(fortify(rda_NOR, display = "species"))
 species_scores$Species <- rownames(species_scores)
 
 # Extract trait loadings (constraints)
-trait_loadings <- as.data.frame(fortify(rda_NOR_CHE, display = "bp"))
+trait_loadings <- as.data.frame(fortify(rda_NOR, display = "bp"))
 trait_loadings$Trait <- rownames(trait_loadings)
 
 trait_loadings <- trait_loadings |> 
-  mutate(label = str_remove(label, "combined_treatment_region"))
+  mutate(label = str_remove(label, "combined_treatment"))
 
-# final plot RDA NOR ------------------------------------------------------
-RDA_NOR_CHE <- ggplot() +
+
+RDA_NOR_ <- ggplot() +
   # Site points with colors by treatment
   geom_point(data = site_scores, 
-             aes(x = RDA1, y = RDA2, color = combined_treatment_region), 
+             aes(x = RDA1, y = RDA2, color = combined_treatment), 
              size = 4, alpha = 0.5) +
   
-  # Species points in red
+  # centroids
   geom_point(data = species_scores, 
              aes(x = RDA1, y = RDA2), 
-             color = "red", size = 3, alpha = 0.5) +
+             color = "red", size = 6, alpha = 0.5) +
   
   # Ellipses for treatment groups
   stat_ellipse(data = site_scores, 
-               aes(x = RDA1, y = RDA2, color = combined_treatment_region), 
+               aes(x = RDA1, y = RDA2, color = combined_treatment), 
                size = 1) +
   
   # Species labels with no size legend
@@ -574,25 +556,10 @@ RDA_NOR_CHE <- ggplot() +
                   size = 7,
                   box.padding = 0.5,
                   point.padding = 0.3,
-                  max.overlaps = 23) +
-  
-  # Arrows for trait loadings
-  geom_segment(data = trait_loadings, 
-               aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
-               arrow = arrow(length = unit(0.2, "cm")), 
-               color = "blue", size = 1) +
-  
-  # Trait labels with better spacing
-  geom_text_repel(data = trait_loadings, 
-                  aes(x = RDA1, y = RDA2, label = label), 
-                  color = "blue", 
-                  size = 8,
-                  box.padding = 0.5,
-                  point.padding = 0.3,
-                  max.overlaps = 15) +
+                  max.overlaps = 23)+
   
   # Customize plot labels and theme
-  labs(x = "RDA1", y = "RDA2", color = "Treatment") +
+  labs(x = "RDA1 (13.47%)", y = "RDA2 (4.29%)", color = "Treatment") +
   theme(legend.position = "right") +
   scale_color_manual(values = define_colors) +
   
@@ -600,94 +567,117 @@ RDA_NOR_CHE <- ggplot() +
   guides(size = "none")+
   
   # Zoom in on central data
-  coord_cartesian(xlim = c(-1.3, 2), ylim = c(-4, 2))  # Adjust as needed
+  coord_cartesian(xlim = c(-2.5, 2), ylim = c(-4, 4))
 
-RDA_NOR_CHE
+RDA_NOR_
+
+ggsave(filename = "RangeX_RDA_NOR_poster_zoom_without_wetmass_final.png", 
+       plot = RDA_NOR_, 
+       path = "Graphs", 
+       width = 15, height = 15)
 
 
-ggplot() +
+# CHE ---------------------------------------------------------------------
+traits_fun_demo_CHE_PCA <- traits_fun_demo_CHE |> 
+  filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
+         | !is.na(leaf_thickness) | !is.na(SLA) | !is.na(LDMC))
+
+length(traits_fun_demo_CHE_PCA$region) # 519 now
+
+traits_fun_demo_CHE_PCA <- traits_fun_demo_CHE_PCA |> 
+  select(leaf_thickness, leaf_area, dry_mass, SLA, LDMC,
+         height_vegetative_str, height_vegetative, leaf_length1,
+         number_leaves, number_flowers, species, combined_treatment,
+         treat_warming, treat_competition)
+
+traits_fun_demo_CHE_PCA <- traits_fun_demo_CHE_PCA |>
+  na.omit()
+
+length(traits_fun_demo_CHE_PCA$leaf_thickness) # 223 now
+
+
+# get species, trait and meta data
+species_data <- traits_fun_demo_CHE_PCA |> 
+  select(species)
+trait_data <- traits_fun_demo_CHE_PCA |> select(leaf_thickness: number_flowers)
+meta_data <- traits_fun_demo_CHE_PCA |> 
+  select(species, combined_treatment, treat_warming, treat_competition)
+
+rda_CHE <- rda(trait_data ~ combined_treatment + Condition(species), data = meta_data, scale = TRUE)
+
+rda_CHE |> anova()
+
+summary(rda_CHE)
+# rda1 = 0.1192 
+# rda2 = 0.07232 
+
+
+# Extract site scores
+site_scores <- as.data.frame(fortify(rda_CHE, display = "sites"))
+site_scores$Site <- rownames(site_scores)
+
+# Extract treat scores
+site_scores$combined_treatment <- traits_fun_demo_CHE_PCA$combined_treatment 
+
+# Extract species scores
+# means traits
+species_scores <- as.data.frame(fortify(rda_CHE, display = "species"))
+species_scores$Species <- rownames(species_scores)
+
+# Extract trait loadings (constraints)
+trait_loadings <- as.data.frame(fortify(rda_CHE, display = "bp"))
+trait_loadings$Trait <- rownames(trait_loadings)
+
+trait_loadings <- trait_loadings |> 
+  mutate(label = str_remove(label, "combined_treatment"))
+
+
+RDA_CHE_ <- ggplot() +
   # Site points with colors by treatment
   geom_point(data = site_scores, 
-             aes(x = RDA1, y = RDA2, color = combined_treatment_region), 
+             aes(x = RDA1, y = RDA2, color = combined_treatment), 
              size = 4, alpha = 0.5) +
   
-  # Species points in red
+  # centroids
   geom_point(data = species_scores, 
              aes(x = RDA1, y = RDA2), 
-             color = "red", size = 3, alpha = 0.5) +
+             color = "red", size = 6, alpha = 0.5) +
   
-  # Ellipses for regions (CHE and NOR)
+  # Ellipses for treatment groups
   stat_ellipse(data = site_scores, 
-               aes(x = RDA1, y = RDA2, color = combined_treatment_region),  # Group by region
-               size = 1)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-RDA_NOR_CHE <- ggplot() +
-  # Site points with colors by treatment
-  geom_point(data = site_scores, 
-             aes(x = RDA1, y = RDA2, color = combined_treatment_region), 
-             size = 4, alpha = 0.5) +
-  
-  # Species points in red
-  geom_point(data = species_scores, 
-             aes(x = RDA1, y = RDA2), 
-             color = "red", size = 3, alpha = 0.5) +
-  
-  # Ellipses for regions (CHE and NOR)
-  stat_ellipse(data = site_scores, 
-               aes(x = RDA1, y = RDA2, color = combined_treatment_region),  # Group by region
+               aes(x = RDA1, y = RDA2, color = combined_treatment), 
                size = 1) +
   
-  # Species labels
+  # Species labels with no size legend
   geom_text_repel(data = species_scores, 
                   aes(x = RDA1, y = RDA2, label = label), 
+                  #color = "red", 
                   size = 7,
                   box.padding = 0.5,
                   point.padding = 0.3,
-                  max.overlaps = 23) +
-  
-  # Arrows for trait loadings
-  geom_segment(data = trait_loadings, 
-               aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
-               arrow = arrow(length = unit(0.2, "cm")), 
-               color = "blue", size = 1) +
-  
-  # Trait labels
-  geom_text_repel(data = trait_loadings, 
-                  aes(x = RDA1, y = RDA2, label = label), 
-                  color = "blue", 
-                  size = 8,
-                  box.padding = 0.5,
-                  point.padding = 0.3,
-                  max.overlaps = 15) +
+                  max.overlaps = 23)+
   
   # Customize plot labels and theme
-  labs(x = "RDA1", y = "RDA2", color = "Treatment / Region") +
+  labs(x = "RDA1 (11.92%)", y = "RDA2 (7.23%)", color = "Treatment") +
   theme(legend.position = "right") +
-  #scale_color_manual(values = define_colors) +
+  scale_color_manual(values = define_colors) +
   
   # Remove size legend 
   guides(size = "none")+
   
   # Zoom in on central data
-  #coord_cartesian(xlim = c(-1.3, 2), ylim = c(-4, 2))  # Adjust as needed
+  coord_cartesian(xlim = c(-2.5, 2), ylim = c(-4, 4))
 
-RDA_NOR_CHE
+RDA_CHE_
+
+ggsave(filename = "RangeX_RDA_CHE_poster_zoom_without_wetmass_final.png", 
+       plot = RDA_CHE_, 
+       path = "Graphs", 
+       width = 15, height = 15)
+
+
+
+
+
+
 
