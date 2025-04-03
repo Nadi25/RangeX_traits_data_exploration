@@ -238,7 +238,7 @@ RDA_NOR
 
 
 
-# RDA NOR plot for poster -------------------------------------------------
+# RDA NOR plot -------------------------------------------------
 RDA_NOR <- ggplot() +
   # Site points with colors by treatment
   geom_point(data = site_scores, 
@@ -279,6 +279,51 @@ RDA_NOR
 
 ggsave(filename = "RangeX_RDA_NOR_poster.png", 
        plot = RDA_NOR, 
+       path = "Graphs", 
+       width = 15, height = 15)
+
+
+# RDA NOR plot poster margins same as in CHE ----------------------------
+RDA_NOR_ <- ggplot() +
+  # Site points with colors by treatment
+  geom_point(data = site_scores, 
+             aes(x = RDA1, y = RDA2, color = combined_treatment), 
+             size = 4, alpha = 0.5) +
+  
+  # centroids
+  geom_point(data = species_scores, 
+             aes(x = RDA1, y = RDA2), 
+             color = "red", size = 6, alpha = 0.5) +
+  
+  # Ellipses for treatment groups
+  stat_ellipse(data = site_scores, 
+               aes(x = RDA1, y = RDA2, color = combined_treatment), 
+               size = 1) +
+  
+  # Species labels with no size legend
+  geom_text_repel(data = species_scores, 
+                  aes(x = RDA1, y = RDA2, label = label), 
+                  #color = "red", 
+                  size = 7,
+                  box.padding = 0.5,
+                  point.padding = 0.3,
+                  max.overlaps = 23)+
+  
+  # Customize plot labels and theme
+  labs(x = "RDA1 (72.5%)", y = "RDA2 (22.0%)", color = "Treatment") +
+  theme(legend.position = "right") +
+  scale_color_manual(values = define_colors) +
+  
+  # Remove size legend 
+  guides(size = "none")+
+  
+  # Zoom in on central data
+  coord_cartesian(xlim = c(-2.5, 2), ylim = c(-4, 4))
+
+RDA_NOR_
+
+ggsave(filename = "RangeX_RDA_NOR_poster_zoom.png", 
+       plot = RDA_NOR_, 
        path = "Graphs", 
        width = 15, height = 15)
 
@@ -385,7 +430,50 @@ ggsave(filename = "RangeX_RDA_CHE_poster.png",
        width = 15, height = 15)
 
 
+# RDA CHE plot poster margins same as in NOR ---------------------
+RDA_CHE_ <- ggplot() +
+  # Site points with colors by treatment
+  geom_point(data = site_scores, 
+             aes(x = RDA1, y = RDA2, color = combined_treatment), 
+             size = 4, alpha = 0.5) +
+  
+  # centroids
+  geom_point(data = species_scores, 
+             aes(x = RDA1, y = RDA2), 
+             color = "red", size = 6, alpha = 0.5) +
+  
+  # Ellipses for treatment groups
+  stat_ellipse(data = site_scores, 
+               aes(x = RDA1, y = RDA2, color = combined_treatment), 
+               size = 1) +
+  
+  # Species labels with no size legend
+  geom_text_repel(data = species_scores, 
+                  aes(x = RDA1, y = RDA2, label = label), 
+                  #color = "red", 
+                  size = 7,
+                  box.padding = 0.5,
+                  point.padding = 0.3,
+                  max.overlaps = 23)+
+  
+  # Customize plot labels and theme
+  labs(x = "RDA1 (58.6%)", y = "RDA2 (35.5%)", color = "Treatment") +
+  theme(legend.position = "right",
+        legend.text = element_text(size = 16),  # Adjust legend text size
+        axis.title = element_text(size = 14)) +
+  scale_color_manual(values = define_colors) +
+  
+  # Remove size legend 
+  guides(size = "none")+
+  
+  # 
+  coord_cartesian(xlim = c(-2.5, 2), ylim = c(-4, 4))
+RDA_CHE_
 
+ggsave(filename = "RangeX_RDA_CHE_poster_zoom.png", 
+       plot = RDA_CHE_, 
+       path = "Graphs", 
+       width = 15, height = 15)
 
 
 # NOR + CHE ------------------------------------------------------------------
