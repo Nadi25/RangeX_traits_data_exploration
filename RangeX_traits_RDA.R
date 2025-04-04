@@ -176,7 +176,7 @@ RDA_NOR
 #        width = 15, height = 15)
 
 
-# final plot RDA NOR ------------------------------------------------------
+# plot RDA NOR ------------------------------------------------------
 RDA_NOR <- ggplot() +
   # Site points with colors by treatment
   geom_point(data = site_scores, 
@@ -483,7 +483,7 @@ traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR |>
   filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
          | !is.na(leaf_thickness) | !is.na(SLA) | !is.na(LDMC))
 
-length(traits_fun_demo_NOR_PCA$region) # 558 now
+length(traits_fun_demo_NOR_PCA$region) # 594 now
 
 traits_fun_demo_NOR_PCA <- traits_fun_demo_NOR_PCA |> 
   select(leaf_thickness, leaf_area, dry_mass, SLA, LDMC,
@@ -526,7 +526,7 @@ species_scores <- as.data.frame(fortify(rda_NOR, display = "species"))
 species_scores$Species <- rownames(species_scores)
 
 # Extract trait loadings (constraints)
-trait_loadings <- as.data.frame(fortify(rda_NOR, display = "bp"))
+trait_loadings <- as.data.frame(fortify(rda_NOR, display = "cn"))
 trait_loadings$Trait <- rownames(trait_loadings)
 
 trait_loadings <- trait_loadings |> 
@@ -568,7 +568,15 @@ RDA_NOR_ <- ggplot() +
   
   # Zoom in on central data
   coord_cartesian(xlim = c(-2.5, 2), ylim = c(-4, 4))
+RDA_NOR_
 
+# make axis labels bigger
+RDA_NOR_ <- RDA_NOR_ +
+  theme(axis.title = element_text(size = 28))
+RDA_NOR_
+# legend text bigger doesnt work
+RDA_NOR_ <- RDA_NOR_ +
+  theme(legend.text = element_text(size = 16))
 RDA_NOR_
 
 ggsave(filename = "RangeX_RDA_NOR_poster_zoom_without_wetmass_final.png", 
@@ -576,6 +584,63 @@ ggsave(filename = "RangeX_RDA_NOR_poster_zoom_without_wetmass_final.png",
        path = "Graphs", 
        width = 15, height = 15)
 
+# NOR RDA with arrows for traits ------------------------------------------
+# flipped the x axis around with -RDA1 to make it better comparable with NOR
+RDA_NOR_ <- ggplot() +
+  # Site points with colors by treatment
+  geom_point(data = site_scores, 
+             aes(x = RDA1, y = RDA2, color = combined_treatment), 
+             size = 4, alpha = 0.5) +
+  
+  # centroids
+  geom_point(data = trait_loadings, 
+             aes(x = RDA1, y = RDA2), 
+             color = "red", size = 7, shape = 18) +
+  
+  # Ellipses for treatment groups
+  stat_ellipse(data = site_scores, 
+               aes(x = RDA1, y = RDA2, color = combined_treatment), 
+               size = 1) +
+  
+  # trait arrows
+  geom_segment(data = species_scores, 
+               aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(length = unit(0.2, "cm")), 
+               color = "blue", size = 1)+
+  # Trait labels
+  geom_text_repel(data = species_scores, 
+                  aes(x = RDA1, y = RDA2, label = label), 
+                  color = "blue", 
+                  size = 6,
+                  box.padding = 0.5,
+                  point.padding = 0.3,
+                  max.overlaps = 18)+
+  
+  # Customize plot labels and theme
+  labs(x = "RDA1 (13.47%)", y = "RDA2 (4.29%)", color = "Treatment") +
+  theme(legend.position = "none") +
+  scale_color_manual(values = define_colors) +
+  
+  # Remove size legend 
+  guides(size = "none")+
+  
+  # Zoom in on central data
+  coord_equal()
+RDA_NOR_
+
+ggsave(filename = "RangeX_RDA_NOR_poster_zoom_without_wetmass_with_arrows_final.png", 
+       plot = RDA_NOR_, 
+       path = "Graphs", 
+       width = 15, height = 15)
+
+RDA_NOR_ <- RDA_NOR_ +
+  coord_equal(xlim = c(-2.5, 3), ylim = c(-6, 4))
+RDA_NOR_
+
+ggsave(filename = "RangeX_RDA_NOR_poster_zoom_without_wetmass_with_arrows_larger.png", 
+       plot = RDA_NOR_, 
+       path = "Graphs", 
+       width = 15, height = 15)
 
 # CHE ---------------------------------------------------------------------
 traits_fun_demo_CHE_PCA <- traits_fun_demo_CHE |> 
@@ -625,7 +690,7 @@ species_scores <- as.data.frame(fortify(rda_CHE, display = "species"))
 species_scores$Species <- rownames(species_scores)
 
 # Extract trait loadings (constraints)
-trait_loadings <- as.data.frame(fortify(rda_CHE, display = "bp"))
+trait_loadings <- as.data.frame(fortify(rda_CHE, display = "cn"))
 trait_loadings$Trait <- rownames(trait_loadings)
 
 trait_loadings <- trait_loadings |> 
@@ -667,7 +732,10 @@ RDA_CHE_ <- ggplot() +
   
   # Zoom in on central data
   coord_cartesian(xlim = c(-2.5, 2), ylim = c(-4, 4))
+RDA_CHE_
 
+RDA_CHE_ <- RDA_CHE_ +
+  theme(axis.title = element_text(size = 28))
 RDA_CHE_
 
 ggsave(filename = "RangeX_RDA_CHE_poster_zoom_without_wetmass_final.png", 
@@ -677,7 +745,175 @@ ggsave(filename = "RangeX_RDA_CHE_poster_zoom_without_wetmass_final.png",
 
 
 
+# CHE RDA with arrows for traits ------------------------------------------
+# flipped the x axis around with -RDA1 to make it better comparable with NOR
+RDA_CHE_ <- ggplot() +
+  # Site points with colors by treatment
+  geom_point(data = site_scores, 
+             aes(x = -RDA1, y = RDA2, color = combined_treatment), 
+             size = 4, alpha = 0.5) +
+  
+  # centroids
+  geom_point(data = trait_loadings, 
+             aes(x = -RDA1, y = RDA2), 
+             color = "red", size = 7, shape = 18) +
+  
+  # Ellipses for treatment groups
+  stat_ellipse(data = site_scores, 
+               aes(x = -RDA1, y = RDA2, color = combined_treatment), 
+               size = 1) +
+  
+  # trait arrows
+  geom_segment(data = species_scores, 
+               aes(x = 0, y = 0, xend = -RDA1, yend = RDA2), 
+               arrow = arrow(length = unit(0.2, "cm")), 
+               color = "blue", size = 1)+
+  # Trait labels
+  geom_text_repel(data = species_scores, 
+                  aes(x = -RDA1, y = RDA2, label = label), 
+                  color = "blue", 
+                  size = 6,
+                  box.padding = 0.5,
+                  point.padding = 0.3,
+                  max.overlaps = 18)+
+  
+  # Customize plot labels and theme
+  labs(x = "RDA1 (11.92%)", y = "RDA2 (7.23%)", color = "Treatment") +
+  theme(legend.position = "none") +
+  scale_color_manual(values = define_colors) +
+  
+  # Remove size legend 
+  guides(size = "none")+
+  
+  # Zoom in on central data
+  coord_equal()
+RDA_CHE_
+
+ggsave(filename = "RangeX_RDA_CHE_poster_zoom_without_wetmass_with_arrows_final.png", 
+       plot = RDA_CHE_, 
+       path = "Graphs", 
+       width = 15, height = 15)
+
+RDA_CHE_ <- RDA_CHE_ +
+  coord_equal(xlim = c(-2.5, 3), ylim = c(-6, 4))
+RDA_CHE_
+
+ggsave(filename = "RangeX_RDA_CHE_poster_zoom_without_wetmass_with_arrows_larger.png", 
+       plot = RDA_CHE_, 
+       path = "Graphs", 
+       width = 15, height = 15)
 
 
 
 
+# NOR hist ----------------------------------------------------------------
+# pivot long
+traits_long_NOR <- traits_fun_demo_NOR_PCA |> 
+  pivot_longer(cols = c(leaf_thickness, leaf_area, dry_mass, SLA, LDMC,
+                        height_vegetative_str, height_vegetative, leaf_length1,
+                        number_leaves, number_flowers),
+               names_to = "Trait", values_to = "Value")
+
+# Histogram plot
+ggplot(traits_long_NOR, aes(x = (Value), fill = combined_treatment)) +
+  geom_histogram(color = "black", bins = 30, alpha = 0.7) +
+  facet_wrap(vars(Trait), scales = "free") + 
+  scale_fill_manual(values = define_colors) +
+  labs(x = "Trait Value", y = "Count", fill = "Treatment") 
+
+
+# all traits except LDMC should be log transformed
+# number leaves and flowrs needs log1p 
+
+
+# NOR log transform -------------------------------------------------------
+GGally::ggpairs(traits_fun_demo_NOR_PCA)
+
+
+traits_fun_demo_NOR_RDA_log <- traits_fun_demo_NOR_PCA |> 
+  mutate(across(c(leaf_thickness, leaf_area, dry_mass, SLA, height_vegetative_str, 
+                  height_vegetative, leaf_length1), log),
+         across(c(number_leaves, number_flowers), log1p)) 
+
+
+species_data <- traits_fun_demo_NOR_RDA_log |> 
+  select(species)
+trait_data <- traits_fun_demo_NOR_RDA_log |> select(leaf_thickness: number_flowers)
+meta_data <- traits_fun_demo_NOR_RDA_log |> 
+  select(species, combined_treatment, treat_warming, treat_competition)
+
+rda_NOR <- rda(trait_data ~ combined_treatment + Condition(species), data = meta_data, scale = TRUE)
+
+rda_NOR |> anova()
+
+summary(rda_NOR)
+# RDA1 0.1637 
+# RDA2 0.0324 
+
+# Extract site scores
+site_scores <- as.data.frame(fortify(rda_NOR, display = "sites"))
+site_scores$Site <- rownames(site_scores)
+
+# Extract treat scores
+site_scores$combined_treatment <- traits_fun_demo_NOR_RDA_log$combined_treatment 
+
+# Extract species scores
+# means traits
+fortify(rda_NOR, display = "species")
+
+species_scores <- as.data.frame(fortify(rda_NOR, display = "species"))
+species_scores$Species <- rownames(species_scores)
+
+# Extract trait loadings (constraints)
+trait_loadings <- as.data.frame(fortify(rda_NOR, display = "cn"))
+trait_loadings$Trait <- rownames(trait_loadings)
+
+trait_loadings <- trait_loadings |> 
+  mutate(label = str_remove(label, "combined_treatment"))
+
+RDA_NOR_ <- ggplot() +
+  # Site points with colors by treatment
+  geom_point(data = site_scores, 
+             aes(x = RDA1, y = RDA2, color = combined_treatment), 
+             size = 4, alpha = 0.5) +
+  
+  # centroids
+  geom_point(data = trait_loadings, 
+             aes(x = RDA1, y = RDA2), 
+             color = "red", size = 7, shape = 18) +
+  
+  # Ellipses for treatment groups
+  stat_ellipse(data = site_scores, 
+               aes(x = RDA1, y = RDA2, color = combined_treatment), 
+               size = 1) +
+  
+  # trait arrows
+  geom_segment(data = species_scores, 
+               aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(length = unit(0.2, "cm")), 
+               color = "blue", size = 1)+
+  # Trait labels
+  geom_text_repel(data = species_scores, 
+                  aes(x = RDA1, y = RDA2, label = label), 
+                  color = "blue", 
+                  size = 6,
+                  box.padding = 0.5,
+                  point.padding = 0.3,
+                  max.overlaps = 18)+
+  
+  # Customize plot labels and theme
+  labs(x = "RDA1 (16.37%)", y = "RDA2 (3.24%)", color = "Treatment") +
+  theme(legend.position = "none") +
+  scale_color_manual(values = define_colors) +
+  
+  # Remove size legend 
+  guides(size = "none")+
+  
+  # Zoom in on central data
+  coord_equal()
+RDA_NOR_
+
+ggsave(filename = "RangeX_RDA_NOR_log_transformed.png", 
+       plot = RDA_NOR_, 
+       path = "Graphs", 
+       width = 15, height = 15)
