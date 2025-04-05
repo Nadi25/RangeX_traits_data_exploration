@@ -827,9 +827,10 @@ ggplot(traits_long_NOR, aes(x = (Value), fill = combined_treatment)) +
 
 
 # NOR log transform -------------------------------------------------------
+# this plots all traits against each other to check weird patterns
 GGally::ggpairs(traits_fun_demo_NOR_PCA)
 
-
+# log transform all except LDMC
 traits_fun_demo_NOR_RDA_log <- traits_fun_demo_NOR_PCA |> 
   mutate(across(c(leaf_thickness, leaf_area, dry_mass, SLA, height_vegetative_str, 
                   height_vegetative, leaf_length1), log),
@@ -852,22 +853,21 @@ summary(rda_NOR)
 
 # Extract site scores
 site_scores <- as.data.frame(fortify(rda_NOR, display = "sites"))
-site_scores$Site <- rownames(site_scores)
+site_scores$Site <- rownames(site_scores) # not needed only gives number
 
-# Extract treat scores
+# add treat to site scores
 site_scores$combined_treatment <- traits_fun_demo_NOR_RDA_log$combined_treatment 
 
 # Extract species scores
 # means traits
-fortify(rda_NOR, display = "species")
-
-species_scores <- as.data.frame(fortify(rda_NOR, display = "species"))
-species_scores$Species <- rownames(species_scores)
+species_scores <-fortify(rda_NOR, display = "species")
+# species_scores$Species <- rownames(species_scores)
 
 # Extract trait loadings (constraints)
-trait_loadings <- as.data.frame(fortify(rda_NOR, display = "cn"))
-trait_loadings$Trait <- rownames(trait_loadings)
-
+# cn means centroids
+trait_loadings <- fortify(rda_NOR, display = "cn")
+# trait_loadings$Trait <- rownames(trait_loadings)
+# remove combined_treatment in label
 trait_loadings <- trait_loadings |> 
   mutate(label = str_remove(label, "combined_treatment"))
 
@@ -917,3 +917,271 @@ ggsave(filename = "RangeX_RDA_NOR_log_transformed.png",
        plot = RDA_NOR_, 
        path = "Graphs", 
        width = 15, height = 15)
+
+# this looks better because outlier in bottom left are gone
+# but veg height str = 0 in species_scores
+# that is weird
+# what happens if we exclude veg height str?
+
+
+# Final NOR log transform without veg height str -------------------------------------------------------
+# dont use veg height str
+# and rename leaf_lenght1
+traits_fun_demo_NOR_RDA <- traits_fun_demo_NOR_PCA |> 
+  select(-height_vegetative_str) |> 
+  rename(leaf_length = leaf_length1)
+
+# log transform all except LDMC
+traits_fun_demo_NOR_RDA_log <- traits_fun_demo_NOR_RDA |> 
+  mutate(across(c(leaf_thickness, leaf_area, dry_mass, SLA,
+                  height_vegetative, leaf_length), log),
+         across(c(number_leaves, number_flowers), log1p)) 
+
+
+species_data <- traits_fun_demo_NOR_RDA_log |> 
+  select(species)
+trait_data <- traits_fun_demo_NOR_RDA_log |> select(leaf_thickness: number_flowers)
+meta_data <- traits_fun_demo_NOR_RDA_log |> 
+  select(species, combined_treatment, treat_warming, treat_competition)
+
+rda_NOR <- rda(trait_data ~ combined_treatment + Condition(species), data = meta_data, scale = TRUE)
+
+rda_NOR |> anova()
+
+summary(rda_NOR)
+# RDA1 0.1637 
+# RDA2 0.0324 
+# is it supposed to have the same values as without veg height str?
+
+# Extract site scores
+site_scores <- as.data.frame(fortify(rda_NOR, display = "sites"))
+
+# add treat to site scores
+site_scores$combined_treatment <- traits_fun_demo_NOR_RDA_log$combined_treatment 
+
+# Extract species scores
+# means traits
+species_scores <-fortify(rda_NOR, display = "species")
+# dry mass looks like it could be 0 in the plot but it's just small
+
+# Extract trait loadings (constraints)
+# cn means centroids
+trait_loadings <- fortify(rda_NOR, display = "cn")
+# remove combined_treatment in label
+trait_loadings <- trait_loadings |> 
+  mutate(label = str_remove(label, "combined_treatment"))
+
+RDA_NOR_ <- ggplot() +
+  # Site points with colors by treatment
+  geom_point(data = site_scores, 
+             aes(x = RDA1, y = RDA2, color = combined_treatment), 
+             size = 4, alpha = 0.5) +
+  
+  # centroids
+  geom_point(data = trait_loadings, 
+             aes(x = RDA1, y = RDA2), 
+             color = "red", size = 7, shape = 18) +
+  
+  # Ellipses for treatment groups
+  stat_ellipse(data = site_scores, 
+               aes(x = RDA1, y = RDA2, color = combined_treatment), 
+               size = 1) +
+  
+  # trait arrows
+  geom_segment(data = species_scores, 
+               aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(length = unit(0.2, "cm")), 
+               color = "blue", size = 1)+
+  # Trait labels
+  geom_text_repel(data = species_scores, 
+                  aes(x = RDA1, y = RDA2, label = label), 
+                  color = "blue", 
+                  size = 6,
+                  box.padding = 0.5,
+                  point.padding = 0.3,
+                  max.overlaps = 18)+
+  
+  # Customize plot labels and theme
+  labs(x = "RDA1 (16.37%)", y = "RDA2 (3.24%)", color = "Treatment") +
+  theme(legend.position = "none",
+        axis.title = element_text(size = 24),
+        axis.text = element_text(size = 20)) +
+  scale_color_manual(values = define_colors) +
+  
+  # Remove size legend 
+  guides(size = "none")+
+  
+  # Zoom in on central data
+  coord_equal()
+RDA_NOR_
+
+ggsave(filename = "RangeX_RDA_NOR_log_transformed.png", 
+       plot = RDA_NOR_, 
+       path = "Graphs", 
+       width = 18, height = 15)
+
+
+# CHE hist ----------------------------------------------------------------
+# pivot long
+traits_long_CHE <- traits_fun_demo_CHE_PCA |> 
+  pivot_longer(cols = c(leaf_thickness, leaf_area, dry_mass, SLA, LDMC,
+                        height_vegetative_str, height_vegetative, leaf_length1,
+                        number_leaves, number_flowers),
+               names_to = "Trait", values_to = "Value")
+
+# Histogram plot
+ggplot(traits_long_CHE, aes(x = (Value), fill = combined_treatment)) +
+  geom_histogram(color = "black", bins = 30, alpha = 0.7) +
+  facet_wrap(vars(Trait), scales = "free") + 
+  scale_fill_manual(values = define_colors) +
+  labs(x = "Trait Value", y = "Count", fill = "Treatment") 
+
+# CHE log transform -------------------------------------------------------
+# this plots all traits against each other to check weird patterns
+# GGally::ggpairs(traits_fun_demo_CHE_PCA)
+
+# make it consistent with NOR and exclude veg height str
+traits_fun_demo_CHE_RDA <- traits_fun_demo_CHE_PCA |> 
+  select(-height_vegetative_str) |> 
+  rename(leaf_length = leaf_length1)
+
+# log transform all except LDMC
+traits_fun_demo_CHE_RDA_log <- traits_fun_demo_CHE_RDA |> 
+  mutate(across(c(leaf_thickness, leaf_area, dry_mass, SLA,
+                  height_vegetative, leaf_length), log),
+         across(c(number_leaves, number_flowers), log1p)) 
+
+
+species_data <- traits_fun_demo_CHE_RDA_log |> 
+  select(species)
+trait_data <- traits_fun_demo_CHE_RDA_log |> select(leaf_thickness: number_flowers)
+meta_data <- traits_fun_demo_CHE_RDA_log |> 
+  select(species, combined_treatment, treat_warming, treat_competition)
+
+rda_CHE <- rda(trait_data ~ combined_treatment + Condition(species), data = meta_data, scale = TRUE)
+
+rda_CHE |> anova()
+
+summary(rda_CHE)
+# RDA1 0.1901
+# RDA2 0.06994
+# 26% of the varaince is explained by treatment?
+
+# Extract site scores
+site_scores <- as.data.frame(fortify(rda_CHE, display = "sites"))
+
+# add treat to site scores
+site_scores$combined_treatment <- traits_fun_demo_CHE_RDA_log$combined_treatment 
+
+# Extract species scores
+# means traits
+species_scores <-fortify(rda_CHE, display = "species")
+
+# Extract trait loadings (constraints)
+# cn means centroids
+trait_loadings <- fortify(rda_CHE, display = "cn")
+# remove combined_treatment in label
+trait_loadings <- trait_loadings |> 
+  mutate(label = str_remove(label, "combined_treatment"))
+
+# plot with flipped x axis by -RDA1
+RDA_CHE_ <- ggplot() +
+  # Site points with colors by treatment
+  geom_point(data = site_scores, 
+             aes(x = -RDA1, y = RDA2, color = combined_treatment), 
+             size = 4, alpha = 0.5) +
+  
+  # centroids
+  geom_point(data = trait_loadings, 
+             aes(x = -RDA1, y = RDA2), 
+             color = "red", size = 7, shape = 18) +
+  
+  # Ellipses for treatment groups
+  stat_ellipse(data = site_scores, 
+               aes(x = -RDA1, y = RDA2, color = combined_treatment), 
+               size = 1) +
+  
+  # trait arrows
+  geom_segment(data = species_scores, 
+               aes(x = 0, y = 0, xend = -RDA1, yend = RDA2), 
+               arrow = arrow(length = unit(0.2, "cm")), 
+               color = "blue", size = 1)+
+  # Trait labels
+  geom_text_repel(data = species_scores, 
+                  aes(x = -RDA1, y = RDA2, label = label), 
+                  color = "blue", 
+                  size = 6,
+                  box.padding = 0.5,
+                  point.padding = 0.3,
+                  max.overlaps = 18)+
+  
+  # Customize plot labels and theme
+  labs(x = "RDA1 (19.01%)", y = "RDA2 (6.99%)", color = "Treatment") +
+  theme(legend.position = "none",
+        axis.title = element_text(size = 24),
+        axis.text = element_text(size = 20)) +
+  scale_color_manual(values = define_colors) +
+  
+  # Remove size legend 
+  guides(size = "none")+
+  
+  # Zoom in on central data
+  coord_equal()
+RDA_CHE_
+
+ggsave(filename = "RangeX_RDA_CHE_log_transformed.png", 
+       plot = RDA_CHE_, 
+       path = "Graphs", 
+       width = 15, height = 15)
+
+# plot without flipped x axis
+RDA_CHE_ <- ggplot() +
+  # Site points with colors by treatment
+  geom_point(data = site_scores, 
+             aes(x = RDA1, y = RDA2, color = combined_treatment), 
+             size = 4, alpha = 0.5) +
+  
+  # centroids
+  geom_point(data = trait_loadings, 
+             aes(x = RDA1, y = RDA2), 
+             color = "red", size = 7, shape = 18) +
+  
+  # Ellipses for treatment groups
+  stat_ellipse(data = site_scores, 
+               aes(x = RDA1, y = RDA2, color = combined_treatment), 
+               size = 1) +
+  
+  # trait arrows
+  geom_segment(data = species_scores, 
+               aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(length = unit(0.2, "cm")), 
+               color = "blue", size = 1)+
+  # Trait labels
+  geom_text_repel(data = species_scores, 
+                  aes(x = RDA1, y = RDA2, label = label), 
+                  color = "blue", 
+                  size = 6,
+                  box.padding = 0.5,
+                  point.padding = 0.3,
+                  max.overlaps = 18)+
+  
+  # Customize plot labels and theme
+  labs(x = "RDA1 (19.01%)", y = "RDA2 (6.99%)", color = "Treatment") +
+  theme(legend.position = "none",
+        axis.title = element_text(size = 24),
+        axis.text = element_text(size = 20)) +
+  scale_color_manual(values = define_colors) +
+  
+  # Remove size legend 
+  guides(size = "none")+
+  
+  # Zoom in on central data
+  coord_equal()
+RDA_CHE_
+
+ggsave(filename = "RangeX_RDA_CHE_log_transformed_not_flipped_xaxis.png", 
+       plot = RDA_CHE_, 
+       path = "Graphs", 
+       width = 18, height = 15)
+
+
