@@ -154,7 +154,7 @@ height_veg
 ggsave(filename = "RangeX_height_veg_NOR_CHE.png", 
        plot = height_veg, 
        path = "Graphs", 
-       width = 20, height = 11)
+       width = 22, height = 11)
 
 
 
