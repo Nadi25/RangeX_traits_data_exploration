@@ -647,7 +647,7 @@ traits_fun_demo_CHE_PCA <- traits_fun_demo_CHE |>
   filter(!is.na(wet_mass) | !is.na(dry_mass) | !is.na(leaf_area) 
          | !is.na(leaf_thickness) | !is.na(SLA) | !is.na(LDMC))
 
-length(traits_fun_demo_CHE_PCA$region) # 519 now
+length(traits_fun_demo_CHE_PCA$region) # 527 now
 
 traits_fun_demo_CHE_PCA <- traits_fun_demo_CHE_PCA |> 
   select(leaf_thickness, leaf_area, dry_mass, SLA, LDMC,
@@ -1046,6 +1046,7 @@ traits_fun_demo_CHE_RDA <- traits_fun_demo_CHE_PCA |>
   rename(leaf_length = leaf_length1)
 
 # log transform all except LDMC
+# log1p handles 0 better e.g. for number of flowers
 traits_fun_demo_CHE_RDA_log <- traits_fun_demo_CHE_RDA |> 
   mutate(across(c(leaf_thickness, leaf_area, dry_mass, SLA,
                   height_vegetative, leaf_length), log),
@@ -1132,7 +1133,7 @@ RDA_CHE_
 ggsave(filename = "RangeX_RDA_CHE_log_transformed.png", 
        plot = RDA_CHE_, 
        path = "Graphs", 
-       width = 15, height = 15)
+       width = 18, height = 15)
 
 # plot without flipped x axis
 RDA_CHE_ <- ggplot() +
